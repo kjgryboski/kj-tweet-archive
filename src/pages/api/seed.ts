@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { initDb, insertTweet } from "@/lib/db";
 import oldTweetsData from "../../../old_tweets.json";
 
-interface SanityTweet {
+interface OldTweet {
   _id: string;
   title: string;
   message: string;
@@ -32,7 +32,7 @@ export default async function handler(
   try {
     await initDb();
 
-    const tweets = (oldTweetsData as { result: SanityTweet[] }).result;
+    const tweets = (oldTweetsData as { result: OldTweet[] }).result;
     let inserted = 0;
 
     for (const tweet of tweets) {

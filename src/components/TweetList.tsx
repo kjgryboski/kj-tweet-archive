@@ -72,8 +72,7 @@ export default function TweetList({ tweets, isLoading, searchTerm = "" }: TweetL
             textAlign="center"
             sx={{ maxWidth: "600px", px: 3 }}
           >
-            There are no tweets currently available in the CMS. Please add some tweets in the Sanity
-            Studio.
+            There are no tweets currently available. Please check back later.
           </MonoTypography>
         </AnimatedText>
       </Box>
