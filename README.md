@@ -38,7 +38,6 @@ src/
     index.tsx        # Main page
     api/
       tweets.ts      # GET /api/tweets — returns all tweets as JSON
-      seed.ts        # POST /api/seed — one-time migration endpoint
       cron/
         scrape-tweets.ts  # Cron endpoint — scrapes X profile
 vercel.json          # Cron schedule config
@@ -61,7 +60,6 @@ Requires `POSTGRES_URL` in `.env.local` — run `vercel env pull` to get it.
 |----------|---------|
 | `POSTGRES_URL` | Vercel Postgres connection string (auto-set by Vercel) |
 | `CRON_SECRET` | Auth token for cron endpoint (auto-sent by Vercel) |
-| `SEED_SECRET` | Auth token for one-time seed migration |
 
 ## Deployment
 
