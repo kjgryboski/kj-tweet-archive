@@ -7,7 +7,7 @@ export default defineConfig({
   name: "cryptoskj-tweet-archive",
   title: "CryptosKJ Tweet Archive",
 
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "0mrl50vq",
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "kin6kwl0",
   dataset: process.env.NEXT_PUBLIC_SANITY_DATASET || "production",
 
   plugins: [deskTool(), visionTool()],
