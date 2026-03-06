@@ -1,54 +1,76 @@
 # KJ Tweet Archive
 
-A minimalist, black-and-white themed web application that displays KJ's tweets with smooth scroll-triggered animations, similar to [yzy-twts.com](https://yzy-twts.com).
+A minimalist web app that automatically archives tweets from [@KJFUTURES](https://x.com/KJFUTURES) and displays them with smooth scroll-triggered animations.
 
-## Features
+**Live site:** [kjtweets.com](https://kjtweets.com)
 
-- **Minimalist Design**: Pure black-and-white color palette
-- **Smooth Animations**: Each tweet fades/animates in as you scroll
-- **Responsive**: Works on all device sizes
-- **Distraction-Free**: No navbars or other distracting UI elements
-- **Interactive**: Click on tweets to open them on X
+## How It Works
 
-## Getting Started
+1. A **Vercel Cron job** runs every 6 hours
+2. A **headless browser** (Puppeteer) scrapes the X profile page
+3. New original tweets (no replies/retweets) are saved to **Vercel Postgres**
+4. The Next.js frontend reads from Postgres and displays them
 
-### Prerequisites
+```
+X Profile (@KJFUTURES) → Scraper (every 6h) → Vercel Postgres → kjtweets.com
+```
 
-- Node.js 18+ and npm
+## Tech Stack
 
-### Installation
+- **Framework:** Next.js 15 (Pages Router)
+- **Database:** Vercel Postgres (Neon)
+- **Scraper:** puppeteer-core + @sparticuz/chromium
+- **Styling:** Material UI
+- **Animations:** Framer Motion
+- **Hosting:** Vercel (Pro)
+- **Domain:** kjtweets.com (Squarespace DNS → Vercel)
 
-1. Clone the repository:
+## Project Structure
 
-   ```bash
-   git clone https://github.com/yourusername/tweet-viewer.git
-   cd tweet-viewer
-   ```
+```
+src/
+  components/       # Tweet, TweetList, SearchBar, BackToTop, ThemeToggle
+  lib/
+    db.ts            # Postgres queries (getTweets, insertTweet, etc.)
+    api.ts           # Server-side tweet fetcher
+    theme-context.tsx # Dark/light mode
+  pages/
+    index.tsx        # Main page
+    api/
+      tweets.ts      # GET /api/tweets — returns all tweets as JSON
+      seed.ts        # POST /api/seed — one-time migration endpoint
+      cron/
+        scrape-tweets.ts  # Cron endpoint — scrapes X profile
+vercel.json          # Cron schedule config
+```
 
-2. Install dependencies:
+## Development
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+npm run dev
+```
 
-3. Run the development server:
+Open [http://localhost:3000](http://localhost:3000).
 
-   ```bash
-   npm run dev
-   ```
+Requires `POSTGRES_URL` in `.env.local` — run `vercel env pull` to get it.
 
-4. Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-## Technical Details
+| Variable | Purpose |
+|----------|---------|
+| `POSTGRES_URL` | Vercel Postgres connection string (auto-set by Vercel) |
+| `CRON_SECRET` | Auth token for cron endpoint (auto-sent by Vercel) |
+| `SEED_SECRET` | Auth token for one-time seed migration |
 
-This application uses:
+## Deployment
 
-- **Next.js**: React framework for server-side rendering and static site generation
-- **TypeScript**: For type-safe code
-- **Material UI**: For styling and components
-- **Framer Motion**: For smooth animations
-- **date-fns**: For date formatting
+Auto-deploys on push to `main` via Vercel.
 
-## License
+```bash
+vercel --prod
+```
 
-MIT
+## Cron Schedule
+
+The scraper runs every 6 hours (`0 */6 * * *`), configured in `vercel.json`. Vercel Pro plan required for sub-daily cron intervals.
