@@ -7,7 +7,6 @@ import TweetList from "@/components/TweetList";
 import BackToTop from "@/components/BackToTop";
 import ThemeToggle from "@/components/ThemeToggle";
 import SearchBar from "@/components/SearchBar";
-import { fetchUserTweets } from "@/lib/api";
 import { useThemeContext } from "@/lib/theme-context";
 import Script from "next/script";
 
@@ -30,7 +29,8 @@ export default function Home() {
   const loadTweets = async () => {
     setIsLoading(true);
     try {
-      const fetchedTweets = await fetchUserTweets();
+      const res = await fetch("/api/tweets");
+      const fetchedTweets = await res.json();
       setTweets(fetchedTweets);
     } catch (error) {
       console.error("Error loading tweets:", error);

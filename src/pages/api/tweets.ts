@@ -1,25 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { fetchUserTweets } from "@/lib/api";
+import { getTweets } from "@/lib/db";
 import { TweetProps } from "@/components/Tweet";
-
-type ErrorResponse = {
-  error: string;
-};
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<TweetProps[] | ErrorResponse>
+  res: NextApiResponse<TweetProps[] | { error: string }>
 ) {
-  try {
-    // Only allow GET requests
-    if (req.method !== "GET") {
-      return res.status(405).json({ error: "Method not allowed" });
-    }
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-    const tweets = await fetchUserTweets();
+  try {
+    const tweets = await getTweets();
     return res.status(200).json(tweets);
   } catch (error) {
-    console.error("Error in API:", error);
+    console.error("Error fetching tweets:", error);
     return res.status(500).json({ error: "Failed to fetch tweets" });
   }
 }
