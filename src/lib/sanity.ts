@@ -1,23 +1,8 @@
 import { createClient } from "next-sanity";
 import imageUrlBuilder from "@sanity/image-url";
 
-// Default values to use when environment variables are not set
-// Replace with your actual Sanity project ID after setting up your project
-const defaultProjectId = "your-project-id";
-const defaultDataset = "production";
-
-// Check if we have a projectId from environment variables or use fallback
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || defaultProjectId;
-const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || defaultDataset;
-
-// Show warning if using default values in development
-if (process.env.NODE_ENV !== "production") {
-  if (!process.env.NEXT_PUBLIC_SANITY_PROJECT_ID) {
-    console.warn(
-      "Warning: No NEXT_PUBLIC_SANITY_PROJECT_ID environment variable found. Using default projectId."
-    );
-  }
-}
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || "0mrl50vq";
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || "production";
 
 // Create the Sanity client
 export const client = createClient({
