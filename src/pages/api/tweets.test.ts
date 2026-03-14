@@ -11,7 +11,7 @@ import { getTweetsPaginated } from "@/lib/db";
 const mockGetTweetsPaginated = vi.mocked(getTweetsPaginated);
 
 function createMockReqRes(method = "GET", query: Record<string, string> = {}) {
-  const req = { method, query } as unknown as NextApiRequest;
+  const req = { method, query, headers: {}, socket: { remoteAddress: "127.0.0.1" } } as unknown as NextApiRequest;
   const res = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
@@ -58,7 +58,10 @@ describe("GET /api/tweets", () => {
     const { req, res } = createMockReqRes("GET", { cursor: "abc" });
     await handler(req, res);
 
-    expect(res.setHeader).not.toHaveBeenCalled();
+    expect(res.setHeader).not.toHaveBeenCalledWith(
+      "Cache-Control",
+      expect.any(String)
+    );
   });
 
   it("passes cursor and limit query params to getTweetsPaginated", async () => {
@@ -104,7 +107,10 @@ describe("GET /api/tweets", () => {
     mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
     const { req, res } = createMockReqRes("GET", { q: "test" });
     await handler(req, res);
-    expect(res.setHeader).not.toHaveBeenCalled();
+    expect(res.setHeader).not.toHaveBeenCalledWith(
+      "Cache-Control",
+      expect.any(String)
+    );
   });
 
   it("returns 405 for non-GET methods", async () => {

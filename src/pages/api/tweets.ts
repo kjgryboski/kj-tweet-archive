@@ -8,6 +8,16 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim()
+    || req.socket?.remoteAddress
+    || "unknown";
+  const { allowed, remaining } = checkRateLimit(ip);
+  if (!allowed) {
+    res.setHeader("Retry-After", "60");
+    return res.status(429).json({ error: "Too many requests" });
+  }
+  res.setHeader("X-RateLimit-Remaining", String(remaining));
+
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }

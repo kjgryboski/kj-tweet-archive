@@ -40,4 +40,17 @@ describe("sendAlert", () => {
     await sendAlert("Subject", "Body");
     expect(mockSend).not.toHaveBeenCalled();
   });
+
+  it("uses ALERT_EMAIL env var when set", async () => {
+    process.env.ALERT_EMAIL = "custom@example.com";
+    mockSend.mockResolvedValue({ id: "456" });
+
+    await sendAlert("Test", "Body");
+
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "custom@example.com" })
+    );
+
+    delete process.env.ALERT_EMAIL;
+  });
 });
