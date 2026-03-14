@@ -6,7 +6,7 @@ vi.mock("@vercel/postgres", () => ({
   sql: mockSql,
 }));
 
-import { initDb, insertTweet, getTweetsPaginated, updateTweetLikes } from "./db";
+import { initDb, insertTweet, getTweetsPaginated, getTweetCount, updateTweetLikes } from "./db";
 
 beforeEach(() => {
   mockSql.mockReset();
@@ -113,6 +113,14 @@ describe("getTweetsPaginated", () => {
     const call = mockSql.mock.calls[mockSql.mock.calls.length - 1];
     expect(JSON.stringify(call)).toContain("bitcoin");
     expect(JSON.stringify(call)).toContain("cursor123");
+  });
+});
+
+describe("getTweetCount", () => {
+  it("returns the count from SQL", async () => {
+    mockSql.mockResolvedValue({ rows: [{ count: "42" }] });
+    const count = await getTweetCount();
+    expect(count).toBe(42);
   });
 });
 

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getTweetsPaginated } from "@/lib/db";
+import { getTweetsPaginated, getTweetCount } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 
 const checkRateLimit = rateLimit({ windowMs: 60_000, max: 60 });
@@ -31,13 +31,16 @@ export default async function handler(
       : "newest";
     const q = (req.query.q as string) || undefined;
 
-    const result = await getTweetsPaginated(cursor, limit, sort, q);
+    const [result, totalCount] = await Promise.all([
+      getTweetsPaginated(cursor, limit, sort, q),
+      !cursor ? getTweetCount() : Promise.resolve(undefined),
+    ]);
 
     if (!cursor && sort === "newest" && !q) {
       res.setHeader("Cache-Control", "public, s-maxage=21600, stale-while-revalidate=3600");
     }
 
-    return res.status(200).json(result);
+    return res.status(200).json({ ...result, totalCount });
   } catch (error) {
     console.error("Error fetching tweets:", error);
     return res.status(500).json({ error: "Failed to fetch tweets" });

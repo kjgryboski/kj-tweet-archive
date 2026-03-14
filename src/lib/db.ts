@@ -200,6 +200,11 @@ export async function insertTweet(tweet: {
   `;
 }
 
+export async function getTweetCount(): Promise<number> {
+  const { rows } = await sql`SELECT COUNT(*) as count FROM tweets`;
+  return parseInt(rows[0].count, 10);
+}
+
 export async function updateTweetLikes(x_tweet_id: string, likes: number) {
   await sql`UPDATE tweets SET likes = ${likes} WHERE x_tweet_id = ${x_tweet_id}`;
 }

@@ -3,12 +3,14 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 vi.mock("@/lib/db", () => ({
   getTweetsPaginated: vi.fn(),
+  getTweetCount: vi.fn(),
 }));
 
 import handler from "./tweets";
-import { getTweetsPaginated } from "@/lib/db";
+import { getTweetsPaginated, getTweetCount } from "@/lib/db";
 
 const mockGetTweetsPaginated = vi.mocked(getTweetsPaginated);
+const mockGetTweetCount = vi.mocked(getTweetCount);
 
 function createMockReqRes(method = "GET", query: Record<string, string> = {}) {
   const req = { method, query, headers: {}, socket: { remoteAddress: "127.0.0.1" } } as unknown as NextApiRequest;
@@ -22,6 +24,8 @@ function createMockReqRes(method = "GET", query: Record<string, string> = {}) {
 
 beforeEach(() => {
   mockGetTweetsPaginated.mockReset();
+  mockGetTweetCount.mockReset();
+  mockGetTweetCount.mockResolvedValue(100);
 });
 
 describe("GET /api/tweets", () => {
@@ -37,7 +41,7 @@ describe("GET /api/tweets", () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(result);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining(result));
   });
 
   it("sets Cache-Control header on first page (no cursor)", async () => {

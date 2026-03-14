@@ -28,6 +28,7 @@ export default function Home() {
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [sort, setSort] = useState<"newest" | "oldest" | "likes">("newest");
   const [error, setError] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const loadingRef = useRef(false);
 
   const loadTweets = useCallback(async (cursor?: string) => {
@@ -56,6 +57,7 @@ export default function Home() {
       }
       setHasMore(data.hasMore);
       setNextCursor(data.nextCursor);
+      if (data.totalCount !== undefined) setTotalCount(data.totalCount);
     } catch (err) {
       console.error("Error loading tweets:", err);
       setError("Failed to load tweets. Please try again.");
@@ -168,6 +170,16 @@ export default function Home() {
             >
               The Archive
             </Typography>
+            {totalCount !== null && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                textAlign="center"
+                fontFamily='"Roboto Mono", monospace'
+              >
+                {totalCount.toLocaleString()} tweets archived
+              </Typography>
+            )}
           </HeaderContainer>
         </Container>
 
