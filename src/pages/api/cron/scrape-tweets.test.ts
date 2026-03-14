@@ -14,6 +14,7 @@ const {
   mockTweetExists,
   mockGenerateTitle,
   mockExecutablePath,
+  mockSendAlert,
 } = vi.hoisted(() => {
   const mockEvaluate = vi.fn();
   const mockGoto = vi.fn().mockResolvedValue(undefined);
@@ -35,6 +36,7 @@ const {
   const mockTweetExists = vi.fn();
   const mockGenerateTitle = vi.fn((text: string) => text.slice(0, 30));
   const mockExecutablePath = vi.fn().mockResolvedValue("/usr/bin/chromium");
+  const mockSendAlert = vi.fn().mockResolvedValue(undefined);
 
   return {
     mockEvaluate,
@@ -49,6 +51,7 @@ const {
     mockTweetExists,
     mockGenerateTitle,
     mockExecutablePath,
+    mockSendAlert,
   };
 });
 
@@ -71,6 +74,19 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/scraper-utils", () => ({
   generateTitle: mockGenerateTitle,
+}));
+
+vi.mock("@/lib/email", () => ({
+  sendAlert: mockSendAlert,
+}));
+
+vi.mock("@/lib/scraper-selectors", () => ({
+  SELECTORS: {
+    tweetContainer: ['[data-testid="tweet"]', 'article[role="article"]', 'article'],
+    tweetText: ['[data-testid="tweetText"]', 'div[lang][dir="ltr"]'],
+    socialContext: ['[data-testid="socialContext"]'],
+    timeElement: ['time[datetime]'],
+  },
 }));
 
 import handler from "./scrape-tweets";
@@ -98,10 +114,12 @@ beforeEach(() => {
   mockLaunch.mockClear();
   mockBrowserClose.mockClear();
   mockNewPage.mockClear();
+  mockSendAlert.mockReset();
 
   // Restore defaults after reset
   mockInitDb.mockResolvedValue(undefined);
   mockInsertTweet.mockResolvedValue(undefined);
+  mockSendAlert.mockResolvedValue(undefined);
   mockLaunch.mockResolvedValue({
     newPage: mockNewPage,
     close: mockBrowserClose,
@@ -118,7 +136,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-// Helper: run handler while advancing fake timers past the 2s setTimeout in scrapeTweets
+// Helper: run handler while advancing fake timers past the setTimeout delays
 async function runHandler(req: NextApiRequest, res: NextApiResponse) {
   const handlerPromise = handler(req, res);
   await vi.runAllTimersAsync();
@@ -138,16 +156,16 @@ describe("GET /api/cron/scrape-tweets", () => {
 
   it("calls initDb before processing tweets", async () => {
     process.env.CRON_SECRET = "my-secret";
-
     mockEvaluate
-      .mockResolvedValueOnce(undefined)  // scroll
-      .mockResolvedValueOnce([]);        // extraction (empty)
-
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        tweets: [{ tweetId: "100", text: "Test", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/100" }],
+        selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
+      });
+    mockTweetExists.mockResolvedValue(true);
     const { req, res } = createMockReqRes("Bearer my-secret");
     await runHandler(req, res);
-
     expect(mockInitDb).toHaveBeenCalledTimes(1);
-    expect(mockTweetExists).not.toHaveBeenCalled(); // no tweets to check
   });
 
   it("skips existing tweets (tweetExists returns true → no insert)", async () => {
@@ -159,7 +177,10 @@ describe("GET /api/cron/scrape-tweets", () => {
 
     mockEvaluate
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(scrapedTweets);
+      .mockResolvedValueOnce({
+        tweets: scrapedTweets,
+        selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
+      });
 
     mockTweetExists.mockResolvedValue(true);
 
@@ -179,7 +200,10 @@ describe("GET /api/cron/scrape-tweets", () => {
 
     mockEvaluate
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(scrapedTweets);
+      .mockResolvedValueOnce({
+        tweets: scrapedTweets,
+        selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
+      });
 
     mockTweetExists.mockResolvedValue(false);
 
@@ -207,7 +231,10 @@ describe("GET /api/cron/scrape-tweets", () => {
 
     mockEvaluate
       .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(scrapedTweets);
+      .mockResolvedValueOnce({
+        tweets: scrapedTweets,
+        selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
+      });
 
     mockTweetExists
       .mockResolvedValueOnce(true)   // tweet 333 exists
@@ -217,7 +244,7 @@ describe("GET /api/cron/scrape-tweets", () => {
     await runHandler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({ success: true, scraped: 2, new: 1 });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, scraped: 2, new: 1 }));
   });
 
   it("returns 500 when scraper throws", async () => {
@@ -229,6 +256,88 @@ describe("GET /api/cron/scrape-tweets", () => {
     await runHandler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "Error: Puppeteer failed" });
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.stringContaining("Puppeteer failed") }));
+    expect(mockSendAlert).toHaveBeenCalled();
+  });
+
+  it("retries on first attempt failure, succeeds on second", async () => {
+    process.env.CRON_SECRET = "my-secret";
+    const mockPage1 = {
+      setUserAgent: vi.fn().mockResolvedValue(undefined),
+      goto: vi.fn().mockResolvedValue(undefined),
+      waitForSelector: vi.fn().mockRejectedValue(new Error("Timeout")),
+    };
+    const mockPage2 = {
+      setUserAgent: vi.fn().mockResolvedValue(undefined),
+      goto: vi.fn().mockResolvedValue(undefined),
+      waitForSelector: vi.fn().mockResolvedValue(undefined),
+      evaluate: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockResolvedValueOnce({
+          tweets: [{ tweetId: "777", text: "Retry tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/777" }],
+          selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
+        }),
+    };
+    mockNewPage.mockResolvedValueOnce(mockPage1).mockResolvedValueOnce(mockPage2);
+    mockTweetExists.mockResolvedValue(false);
+
+    const { req, res } = createMockReqRes("Bearer my-secret");
+    await runHandler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, attempts: 2 }));
+  });
+
+  it("sends alert email on total failure", async () => {
+    process.env.CRON_SECRET = "my-secret";
+    mockLaunch.mockRejectedValue(new Error("Browser crashed"));
+
+    const { req, res } = createMockReqRes("Bearer my-secret");
+    await runHandler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(mockSendAlert).toHaveBeenCalledWith(
+      "[KJ Tweets] Scraper FAILED — 0 tweets extracted",
+      expect.stringContaining("Browser crashed")
+    );
+  });
+
+  it("sends degradation alert when fallback selector used", async () => {
+    process.env.CRON_SECRET = "my-secret";
+    mockEvaluate
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        tweets: [{ tweetId: "888", text: "Fallback tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/888" }],
+        selectorsUsed: { tweetContainer: 'article[role="article"]', tweetText: '[data-testid="tweetText"]' },
+      });
+    mockTweetExists.mockResolvedValue(false);
+
+    const { req, res } = createMockReqRes("Bearer my-secret");
+    await runHandler(req, res);
+
+    expect(mockSendAlert).toHaveBeenCalledWith(
+      "[KJ Tweets] Selector degradation — fallback in use",
+      expect.stringContaining("fallback")
+    );
+  });
+
+  it("response includes selector metadata and attempts", async () => {
+    process.env.CRON_SECRET = "my-secret";
+    mockEvaluate
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        tweets: [{ tweetId: "999", text: "Meta tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/999" }],
+        selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
+      });
+    mockTweetExists.mockResolvedValue(false);
+
+    const { req, res } = createMockReqRes("Bearer my-secret");
+    await runHandler(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      attempts: 1,
+      selectorsUsed: expect.objectContaining({ tweetContainer: '[data-testid="tweet"]' }),
+      fallbacksTriggered: false,
+    }));
   });
 });
