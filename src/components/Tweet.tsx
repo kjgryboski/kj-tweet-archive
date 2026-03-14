@@ -243,9 +243,28 @@ export default function Tweet({
           {fullText ? (
             <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
           ) : (
-            <TweetTextWrapper>
-              <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
-            </TweetTextWrapper>
+            <>
+              <TweetTextWrapper>
+                <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
+              </TweetTextWrapper>
+              {text.length > 280 && (
+                <Typography
+                  component="a"
+                  href={`/tweet/${id}`}
+                  variant="caption"
+                  sx={{
+                    fontFamily: '"Roboto Mono", monospace',
+                    color: "text.secondary",
+                    textDecoration: "none",
+                    mt: 0.5,
+                    display: "block",
+                    "&:hover": { color: "text.primary" },
+                  }}
+                >
+                  Read more →
+                </Typography>
+              )}
+            </>
           )}
 
           <Box sx={{ display: "flex", alignItems: "center", mt: "auto", pt: 1 }}>
