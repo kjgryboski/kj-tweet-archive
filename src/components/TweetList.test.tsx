@@ -50,4 +50,10 @@ describe("TweetList", () => {
     expect(screen.getByText("Tweet two")).toBeInTheDocument();
     expect(screen.getByText("Tweet three")).toBeInTheDocument();
   });
+
+  it("shows bottom spinner when loadingMore is true", () => {
+    renderWithTheme(<TweetList tweets={mockTweets} isLoading={false} loadingMore={true} />);
+    expect(screen.getByText("Tweet one")).toBeInTheDocument();
+    expect(screen.getByText("Loading more...")).toBeInTheDocument();
+  });
 });

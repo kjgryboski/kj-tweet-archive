@@ -7,6 +7,7 @@ interface TweetListProps {
   tweets: TweetProps[];
   isLoading: boolean;
   searchTerm?: string;
+  loadingMore?: boolean;
 }
 
 const AnimatedText = styled(motion.div)({
@@ -24,7 +25,7 @@ const MonoTypography = styled(Typography)({
   fontFamily: '"Roboto Mono", "Courier New", monospace',
 });
 
-export default function TweetList({ tweets, isLoading, searchTerm = "" }: TweetListProps) {
+export default function TweetList({ tweets, isLoading, searchTerm = "", loadingMore = false }: TweetListProps) {
   if (isLoading) {
     return (
       <Box
@@ -105,6 +106,12 @@ export default function TweetList({ tweets, isLoading, searchTerm = "" }: TweetL
             </TweetContainer>
           ))}
         </Box>
+        {loadingMore && (
+          <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
+            <CircularProgress size={20} sx={{ mr: 1 }} />
+            <MonoTypography variant="body2">Loading more...</MonoTypography>
+          </Box>
+        )}
       </Container>
     </Box>
   );
