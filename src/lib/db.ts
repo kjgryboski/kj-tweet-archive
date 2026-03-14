@@ -193,7 +193,10 @@ export async function insertTweet(tweet: {
       ${tweet.created_at || new Date().toISOString()},
       ${tweet.likes || 0}
     )
-    ON CONFLICT (x_tweet_id) DO UPDATE SET likes = EXCLUDED.likes
+    ON CONFLICT (x_tweet_id) DO UPDATE SET
+      likes = EXCLUDED.likes,
+      message = EXCLUDED.message,
+      title = EXCLUDED.title
   `;
 }
 

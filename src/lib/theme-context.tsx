@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, ReactNode } from "react";
 import { ThemeProvider as MUIThemeProvider, createTheme, Theme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 
@@ -94,7 +94,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, []);
 
   // Toggle between light and dark mode
-  const toggleColorMode = () => {
+  const toggleColorMode = useCallback(() => {
     setColorMode((prevMode) => {
       const newMode = prevMode === "light" ? "dark" : "light";
       if (typeof window !== "undefined") {
@@ -102,17 +102,17 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       }
       return newMode;
     });
-  };
+  }, []);
 
   // Memoize the theme to prevent unnecessary re-renders
   const theme = useMemo(() => getTheme(colorMode), [colorMode]);
 
   // Provide the context value
-  const value = {
+  const value = useMemo(() => ({
     colorMode,
     toggleColorMode,
     theme,
-  };
+  }), [colorMode, toggleColorMode, theme]);
 
   return (
     <ThemeContext.Provider value={value}>
