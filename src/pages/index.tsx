@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/router";
 import Head from "next/head";
 import { Box, Container, Typography, ToggleButton, ToggleButtonGroup } from "@mui/material";
 import { styled, Theme } from "@mui/material/styles";
@@ -17,6 +18,7 @@ const HeaderContainer = styled(Box)(({ theme }: { theme: Theme }) => ({
 }));
 
 export default function Home() {
+  const router = useRouter();
   const [tweets, setTweets] = useState<TweetProps[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,7 +29,10 @@ export default function Home() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const [sort, setSort] = useState<"newest" | "oldest" | "likes">("newest");
+  const initialSort = (["newest", "oldest", "likes"] as const).includes(router.query.sort as any)
+    ? (router.query.sort as "newest" | "oldest" | "likes")
+    : "newest";
+  const [sort, setSort] = useState<"newest" | "oldest" | "likes">(initialSort);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number | null>(null);
   const loadingRef = useRef(false);
@@ -73,6 +78,7 @@ export default function Home() {
   const handleSortChange = (_: React.MouseEvent<HTMLElement>, newSort: "newest" | "oldest" | "likes" | null) => {
     if (newSort === null) return;
     setSort(newSort);
+    router.replace(newSort === "newest" ? "/" : `/?sort=${newSort}`, undefined, { shallow: true });
     setTweets([]);
     setNextCursor(null);
     setHasMore(true);

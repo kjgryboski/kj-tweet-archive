@@ -3,7 +3,7 @@ import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
 import { Card, CardContent, Typography, Box, Avatar, IconButton, Tooltip } from "@mui/material";
 import { styled, Theme } from "@mui/material/styles";
-import React from "react";
+import React, { useRef, useState, useEffect } from "react";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 
 export interface TweetProps {
@@ -152,6 +152,15 @@ export default function Tweet({
   likes = 0,
   fullText = false,
 }: TweetProps) {
+  const textWrapperRef = useRef<HTMLDivElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useEffect(() => {
+    if (fullText || !textWrapperRef.current) return;
+    const el = textWrapperRef.current;
+    setIsOverflowing(el.scrollHeight > el.clientHeight);
+  }, [text, fullText]);
+
   const formattedDate = formatDistanceToNow(new Date(createdAt), {
     addSuffix: true,
   });
@@ -244,10 +253,10 @@ export default function Tweet({
             <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
           ) : (
             <>
-              <TweetTextWrapper>
+              <TweetTextWrapper ref={textWrapperRef}>
                 <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
               </TweetTextWrapper>
-              {text.length > 280 && (
+              {isOverflowing && (
                 <Typography
                   component="a"
                   href={`/tweet/${id}`}

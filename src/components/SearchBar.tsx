@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from "react";
-import { TextField, InputAdornment, IconButton, Box, Typography } from "@mui/material";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { TextField, InputAdornment, IconButton, Box, Typography, CircularProgress } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
 import { styled } from "@mui/material/styles";
@@ -28,31 +28,49 @@ export default function SearchBar({ onServerSearch, onClear, resultCount, isSear
   const [inputValue, setInputValue] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
-  };
-
-  const executeSearch = () => {
-    if (!inputValue.trim()) {
-      clearSearch();
+  const executeSearch = useCallback((term: string) => {
+    if (!term.trim()) {
+      setHasSearched(false);
+      onClear();
       return;
     }
     setHasSearched(true);
-    onServerSearch(inputValue.trim());
+    onServerSearch(term.trim());
+  }, [onServerSearch, onClear]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInputValue(value);
+
+    // Debounce search by 300ms
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      executeSearch(value);
+    }, 300);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
-      executeSearch();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      executeSearch(inputValue);
     }
   };
 
   const clearSearch = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setInputValue("");
     setHasSearched(false);
     onClear();
   };
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   // Keyboard shortcut: Ctrl+K or / to focus search
   useEffect(() => {
@@ -85,9 +103,13 @@ export default function SearchBar({ onServerSearch, onClear, resultCount, isSear
           input: {
             startAdornment: (
               <InputAdornment position="start">
-                <IconButton onClick={executeSearch} size="small" aria-label="search">
-                  <SearchIcon />
-                </IconButton>
+                {isSearching ? (
+                  <CircularProgress size={20} sx={{ ml: 0.5, mr: 0.5 }} />
+                ) : (
+                  <IconButton onClick={() => executeSearch(inputValue)} size="small" aria-label="search">
+                    <SearchIcon />
+                  </IconButton>
+                )}
               </InputAdornment>
             ),
             endAdornment: inputValue && (

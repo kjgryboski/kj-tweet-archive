@@ -8,13 +8,14 @@ import React from "react";
 // Mock framer-motion
 vi.mock("framer-motion", () => {
   const { forwardRef } = require("react");
+  const React = require("react");
   return {
     motion: {
       div: forwardRef(({ children, ...props }: any, ref: any) => {
-        const React = require("react");
         return React.createElement("div", { ref, ...props }, children);
       }),
     },
+    AnimatePresence: ({ children }: any) => React.createElement(React.Fragment, null, children),
   };
 });
 
@@ -34,9 +35,11 @@ const mockTweets = [
 ];
 
 describe("TweetList", () => {
-  it("shows loading spinner when isLoading is true", () => {
-    renderWithTheme(<TweetList tweets={[]} isLoading={true} />);
-    expect(screen.getByText("Loading tweets...")).toBeInTheDocument();
+  it("shows skeleton cards when isLoading is true", () => {
+    const { container } = renderWithTheme(<TweetList tweets={[]} isLoading={true} />);
+    // Skeleton loading renders MUI Skeleton components
+    const skeletons = container.querySelectorAll(".MuiSkeleton-root");
+    expect(skeletons.length).toBeGreaterThan(0);
   });
 
   it("shows empty state when tweets array is empty", () => {

@@ -1,7 +1,10 @@
 import { GetServerSideProps } from "next";
 import Head from "next/head";
 import Link from "next/link";
-import { Box, Container, Typography } from "@mui/material";
+import React, { useState } from "react";
+import { Box, Container, Typography, IconButton, Tooltip } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import CheckIcon from "@mui/icons-material/Check";
 import { styled, Theme } from "@mui/material/styles";
 import Tweet, { TweetProps } from "@/components/Tweet";
 import BackToTop from "@/components/BackToTop";
@@ -45,6 +48,27 @@ export const getServerSideProps: GetServerSideProps = async ({ params, res }) =>
 
 export default function TweetPage({ tweet }: TweetPageProps) {
   const { colorMode, toggleColorMode } = useThemeContext();
+  const [copied, setCopied] = useState(false);
+
+  const shareUrl = `https://kjtweets.com/tweet/${tweet.id}`;
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const input = document.createElement("input");
+      input.value = shareUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand("copy");
+      document.body.removeChild(input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const ogDescription = tweet.text.length > 200
     ? tweet.text.substring(0, 197) + "..."
@@ -85,6 +109,29 @@ export default function TweetPage({ tweet }: TweetPageProps) {
           sx={{ pb: 4 }}
         >
           <Tweet {...tweet} fullText />
+          <Box sx={{ display: "flex", justifyContent: "center", mt: 2 }}>
+            <Tooltip title={copied ? "Copied!" : "Copy link"} placement="top">
+              <IconButton
+                onClick={copyToClipboard}
+                size="small"
+                sx={{
+                  fontFamily: '"Roboto Mono", monospace',
+                  fontSize: "0.8rem",
+                  borderRadius: 1,
+                  border: "1px solid",
+                  borderColor: "divider",
+                  px: 2,
+                  py: 0.5,
+                  gap: 0.5,
+                  color: "text.secondary",
+                  "&:hover": { color: "text.primary" },
+                }}
+              >
+                {copied ? <CheckIcon sx={{ fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
+                {copied ? "Copied" : "Share"}
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Container>
 
         <Box

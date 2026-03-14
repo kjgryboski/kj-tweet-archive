@@ -1,6 +1,6 @@
 import Tweet, { TweetProps } from "./Tweet";
-import { motion } from "framer-motion";
-import { Box, Container, Typography, CircularProgress } from "@mui/material";
+import { motion, AnimatePresence } from "framer-motion";
+import { Box, Container, Typography, CircularProgress, Skeleton } from "@mui/material";
 import { styled, Theme } from "@mui/material/styles";
 
 interface TweetListProps {
@@ -18,7 +18,7 @@ const AnimatedText = styled(motion.div)({
   alignItems: "center",
 });
 
-const TweetContainer = styled(Box)(({ theme }: { theme: Theme }) => ({
+const TweetContainer = styled(motion.div)(({ theme }: { theme: Theme }) => ({
   height: "100%",
   padding: theme.spacing(1),
 }));
@@ -26,6 +26,55 @@ const TweetContainer = styled(Box)(({ theme }: { theme: Theme }) => ({
 const MonoTypography = styled(Typography)({
   fontFamily: '"Roboto Mono", "Courier New", monospace',
 });
+
+const SkeletonCard = styled(Box)(({ theme }: { theme: Theme }) => ({
+  border: `1px solid ${theme.palette.divider}`,
+  borderRadius: theme.spacing(1),
+  padding: theme.spacing(2),
+  height: "220px",
+  display: "flex",
+  flexDirection: "column",
+  gap: theme.spacing(1),
+}));
+
+function LoadingSkeleton() {
+  return (
+    <Box sx={{ width: "100%", pb: 6, display: "flex", justifyContent: "center" }}>
+      <Container maxWidth="xl" sx={{ width: "90%", px: { xs: 1, sm: 2, md: 3 } }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" },
+            gap: 2,
+          }}
+        >
+          {Array.from({ length: 9 }).map((_, i) => (
+            <Box key={i} sx={{ p: 1 }}>
+              <SkeletonCard>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                  <Skeleton variant="circular" width={36} height={36} />
+                  <Box sx={{ flex: 1 }}>
+                    <Skeleton width="40%" height={20} />
+                    <Skeleton width="60%" height={16} />
+                  </Box>
+                </Box>
+                <Skeleton width="70%" height={24} />
+                <Skeleton variant="rectangular" sx={{ flex: 1, borderRadius: 0.5 }} />
+                <Skeleton width="20%" height={16} />
+              </SkeletonCard>
+            </Box>
+          ))}
+        </Box>
+      </Container>
+    </Box>
+  );
+}
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -10 },
+};
 
 export default function TweetList({ tweets, isLoading, searchTerm = "", loadingMore = false, error, onRetry }: TweetListProps) {
   if (error) {
@@ -66,25 +115,7 @@ export default function TweetList({ tweets, isLoading, searchTerm = "", loadingM
   }
 
   if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          minHeight: "50vh",
-        }}
-      >
-        <AnimatedText
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <CircularProgress size={24} sx={{ mr: 2 }} />
-          <MonoTypography variant="h6">Loading tweets...</MonoTypography>
-        </AnimatedText>
-      </Box>
-    );
+    return <LoadingSkeleton />;
   }
 
   if (tweets.length === 0) {
@@ -139,11 +170,21 @@ export default function TweetList({ tweets, isLoading, searchTerm = "", loadingM
             gap: 2,
           }}
         >
-          {tweets.map((tweet) => (
-            <TweetContainer key={tweet.id}>
-              <Tweet {...tweet} searchTerm={searchTerm} />
-            </TweetContainer>
-          ))}
+          <AnimatePresence mode="popLayout">
+            {tweets.map((tweet, index) => (
+              <TweetContainer
+                key={tweet.id}
+                variants={cardVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                transition={{ duration: 0.3, delay: index < 9 ? index * 0.03 : 0 }}
+                layout
+              >
+                <Tweet {...tweet} searchTerm={searchTerm} />
+              </TweetContainer>
+            ))}
+          </AnimatePresence>
         </Box>
         {loadingMore && (
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
