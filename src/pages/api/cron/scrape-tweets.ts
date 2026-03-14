@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
-import { initDb, insertTweet } from "@/lib/db";
+import { insertTweet } from "@/lib/db";
 import { generateTitle, type ScrapedTweet } from "@/lib/scraper-utils";
 import { SELECTORS } from "@/lib/scraper-selectors";
 import { sendAlert } from "@/lib/email";
@@ -48,7 +48,7 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
       const page = await browser.newPage();
 
       await page.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
       );
 
       try {
@@ -62,9 +62,23 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
           timeout: SELECTOR_TIMEOUT,
         });
 
-        // Scroll to load more tweets
-        await page.evaluate(() => window.scrollBy(0, 2000));
-        await new Promise((r) => setTimeout(r, 2000));
+        // Scroll to load more tweets — loop until no new tweets appear
+        const MAX_SCROLLS = 10;
+        const SCROLL_DELAY_MS = 2000;
+        let previousCount = 0;
+
+        for (let scroll = 0; scroll < MAX_SCROLLS; scroll++) {
+          await page.evaluate(() => window.scrollBy(0, 2000));
+          await new Promise((r) => setTimeout(r, SCROLL_DELAY_MS));
+
+          const currentCount = await page.evaluate(
+            (sel: string) => document.querySelectorAll(sel).length,
+            SELECTORS.tweetContainer.join(", ")
+          );
+
+          if (currentCount === previousCount) break;
+          previousCount = currentCount;
+        }
 
         // Extract tweets — pass serializable config as argument
         const evalResult = await page.evaluate(
@@ -211,12 +225,13 @@ export default async function handler(
   // Verify cron secret (Vercel sends this automatically for cron jobs)
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
+    if (!secret) {
+      console.error("[CRON] CRON_SECRET env var is not set — cron job cannot authenticate");
+    }
     return res.status(401).json({ error: "Unauthorized" });
   }
 
   try {
-    await initDb();
-
     const result = await scrapeTweetsWithRetry();
 
     for (const tweet of result.tweets) {
