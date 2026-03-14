@@ -8,7 +8,7 @@ import BackToTop from "@/components/BackToTop";
 import ThemeToggle from "@/components/ThemeToggle";
 import SearchBar from "@/components/SearchBar";
 import { useThemeContext } from "@/lib/theme-context";
-import Script from "next/script";
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 const HeaderContainer = styled(Box)(({ theme }: { theme: Theme }) => ({
   borderBottom: `1px solid ${theme.palette.divider}`,
@@ -91,14 +91,7 @@ export default function Home() {
 
   return (
     <>
-      <Script async src="https://www.googletagmanager.com/gtag/js?id=G-TQ17DS73DL"></Script>
-      <Script>
-        {`window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-
-            gtag('config', 'G-TQ17DS73DL');`}
-      </Script>
+      <GoogleAnalytics gaId="G-TQ17DS73DL" />
       <Head>
         <title>KJ Tweets</title>
         <meta
