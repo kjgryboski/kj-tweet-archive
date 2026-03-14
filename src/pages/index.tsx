@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
-import { Box, Container, Typography } from "@mui/material";
+import { Box, Container, Typography, ToggleButton, ToggleButtonGroup } from "@mui/material";
 import { styled, Theme } from "@mui/material/styles";
 import { TweetProps } from "@/components/Tweet";
 import TweetList from "@/components/TweetList";
@@ -25,6 +25,7 @@ export default function Home() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const [sort, setSort] = useState<"newest" | "oldest">("newest");
 
   const loadTweets = useCallback(async (cursor?: string) => {
     if (cursor) {
@@ -34,7 +35,7 @@ export default function Home() {
     }
 
     try {
-      const params = new URLSearchParams({ limit: "30" });
+      const params = new URLSearchParams({ limit: "30", sort });
       if (cursor) params.set("cursor", cursor);
 
       const res = await fetch(`/api/tweets?${params}`);
@@ -54,7 +55,15 @@ export default function Home() {
       setIsLoading(false);
       setLoadingMore(false);
     }
-  }, []);
+  }, [sort]);
+
+  const handleSortChange = (_: React.MouseEvent<HTMLElement>, newSort: "newest" | "oldest" | null) => {
+    if (newSort === null) return;
+    setSort(newSort);
+    setTweets([]);
+    setNextCursor(null);
+    setHasMore(true);
+  };
 
   useEffect(() => {
     loadTweets();
@@ -161,6 +170,23 @@ export default function Home() {
           }}
         >
           {!isLoading && tweets.length > 0 && <SearchBar tweets={tweets} onSearch={handleSearch} />}
+          {!isLoading && tweets.length > 0 && (
+            <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>
+              <ToggleButtonGroup
+                value={sort}
+                exclusive
+                onChange={handleSortChange}
+                size="small"
+              >
+                <ToggleButton value="newest" sx={{ fontFamily: '"Roboto Mono", monospace', textTransform: "none", px: 2 }}>
+                  Newest
+                </ToggleButton>
+                <ToggleButton value="oldest" sx={{ fontFamily: '"Roboto Mono", monospace', textTransform: "none", px: 2 }}>
+                  Oldest
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          )}
         </Container>
 
         <TweetList tweets={tweets} isLoading={isLoading} searchTerm={searchTerm} loadingMore={loadingMore} />
