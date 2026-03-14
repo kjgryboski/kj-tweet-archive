@@ -3,14 +3,28 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import { initDb, insertTweet, tweetExists } from "@/lib/db";
 import { generateTitle, type ScrapedTweet } from "@/lib/scraper-utils";
+import { SELECTORS } from "@/lib/scraper-selectors";
+import { sendAlert } from "@/lib/email";
 
 export const config = {
   maxDuration: 120, // 2 minutes max for Pro plan
 };
 
 const PROFILE_URL = "https://x.com/KJFUTURES";
+const MAX_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 3000;
+const GOTO_TIMEOUT = 30000;
+const SELECTOR_TIMEOUT = 15000;
+const LOW_TWEET_THRESHOLD = 3;
 
-async function scrapeTweets(): Promise<ScrapedTweet[]> {
+interface ScrapeResult {
+  tweets: ScrapedTweet[];
+  selectorsUsed: Record<string, string>;
+  fallbacksTriggered: boolean;
+  attempts: number;
+}
+
+async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: { width: 1280, height: 720 },
@@ -18,71 +32,162 @@ async function scrapeTweets(): Promise<ScrapedTweet[]> {
     headless: true,
   });
 
+  // Build a plain serializable selector config to pass into page.evaluate
+  const selectorConfig = {
+    tweetContainer: [...SELECTORS.tweetContainer],
+    tweetText: [...SELECTORS.tweetText],
+    socialContext: [...SELECTORS.socialContext],
+    timeElement: [...SELECTORS.timeElement],
+  };
+
+  let lastError: unknown;
+
   try {
-    const page = await browser.newPage();
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const page = await browser.newPage();
 
-    await page.setUserAgent(
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    );
+      await page.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      );
 
-    await page.goto(PROFILE_URL, { waitUntil: "networkidle2", timeout: 60000 });
-
-    // Wait for tweets to load
-    await page.waitForSelector('[data-testid="tweet"]', { timeout: 30000 });
-
-    // Scroll to load more tweets
-    await page.evaluate(() => window.scrollBy(0, 2000));
-    await new Promise((r) => setTimeout(r, 2000));
-
-    // Extract tweets
-    const tweets = await page.evaluate(() => {
-      const tweetElements = document.querySelectorAll('[data-testid="tweet"]');
-      const results: {
-        tweetId: string;
-        text: string;
-        timestamp: string;
-        url: string;
-      }[] = [];
-
-      tweetElements.forEach((el) => {
-        // Skip retweets
-        const socialContext = el.querySelector('[data-testid="socialContext"]');
-        if (socialContext?.textContent?.includes("reposted")) return;
-
-        // Get tweet link to extract ID
-        const timeEl = el.querySelector("time");
-        const linkEl = timeEl?.closest("a");
-        const href = linkEl?.getAttribute("href") || "";
-        const tweetIdMatch = href.match(/status\/(\d+)/);
-        if (!tweetIdMatch) return;
-
-        // Skip replies - check if this tweet is a reply by looking for "Replying to" text
-        const allText = el.textContent || "";
-        if (allText.includes("Replying to @")) return;
-
-        // Get tweet text
-        const tweetTextEl = el.querySelector('[data-testid="tweetText"]');
-        const text = tweetTextEl?.textContent || "";
-        if (!text.trim()) return;
-
-        // Get timestamp
-        const timestamp = timeEl?.getAttribute("datetime") || "";
-
-        results.push({
-          tweetId: tweetIdMatch[1],
-          text: text.trim(),
-          timestamp,
-          url: `https://x.com${href}`,
+      try {
+        await page.goto(PROFILE_URL, {
+          waitUntil: "networkidle2",
+          timeout: GOTO_TIMEOUT,
         });
-      });
 
-      return results;
-    });
+        // Wait for tweets using combined selector
+        await page.waitForSelector(SELECTORS.tweetContainer.join(", "), {
+          timeout: SELECTOR_TIMEOUT,
+        });
 
-    return tweets;
+        // Scroll to load more tweets
+        await page.evaluate(() => window.scrollBy(0, 2000));
+        await new Promise((r) => setTimeout(r, 2000));
+
+        // Extract tweets — pass serializable config as argument
+        const evalResult = await page.evaluate(
+          (cfg: {
+            tweetContainer: string[];
+            tweetText: string[];
+            socialContext: string[];
+            timeElement: string[];
+          }) => {
+            // Inline resolveChild — cannot import modules in browser context
+            function resolveChild(
+              parent: Element,
+              sels: string[]
+            ): Element | null {
+              for (const sel of sels) {
+                const el = parent.querySelector(sel);
+                if (el) return el;
+              }
+              return null;
+            }
+
+            // Find tweet elements using the first matching container selector
+            let tweetElements: Element[] = [];
+            let usedContainerSelector = "";
+            for (const sel of cfg.tweetContainer) {
+              const found = Array.from(document.querySelectorAll(sel));
+              if (found.length > 0) {
+                tweetElements = found;
+                usedContainerSelector = sel;
+                break;
+              }
+            }
+
+            const results: {
+              tweetId: string;
+              text: string;
+              timestamp: string;
+              url: string;
+            }[] = [];
+
+            let usedTextSelector = "";
+
+            tweetElements.forEach((el) => {
+              // Skip retweets
+              const socialContext = resolveChild(el, cfg.socialContext);
+              if (socialContext?.textContent?.includes("reposted")) return;
+
+              // Get tweet link to extract ID
+              const timeEl = resolveChild(el, cfg.timeElement);
+              const linkEl = timeEl?.closest("a");
+              const href = linkEl?.getAttribute("href") || "";
+              const tweetIdMatch = href.match(/status\/(\d+)/);
+              if (!tweetIdMatch) return;
+
+              // Skip replies
+              const allText = el.textContent || "";
+              if (allText.includes("Replying to @")) return;
+
+              // Get tweet text using first matching text selector
+              let text = "";
+              let matchedTextSel = "";
+              for (const sel of cfg.tweetText) {
+                const tweetTextEl = el.querySelector(sel);
+                if (tweetTextEl?.textContent?.trim()) {
+                  text = tweetTextEl.textContent.trim();
+                  matchedTextSel = sel;
+                  break;
+                }
+              }
+              if (!text) return;
+              if (!usedTextSelector) usedTextSelector = matchedTextSel;
+
+              // Get timestamp
+              const timestamp = timeEl?.getAttribute("datetime") || "";
+
+              results.push({
+                tweetId: tweetIdMatch[1],
+                text,
+                timestamp,
+                url: `https://x.com${href}`,
+              });
+            });
+
+            return {
+              tweets: results,
+              selectorsUsed: {
+                tweetContainer: usedContainerSelector,
+                tweetText: usedTextSelector,
+              },
+            };
+          },
+          selectorConfig
+        );
+
+        if (evalResult.tweets.length === 0) {
+          throw new Error("Zero tweets extracted");
+        }
+
+        // Detect fallback usage: primary selector is the first in each list
+        const fallbacksTriggered =
+          (evalResult.selectorsUsed.tweetContainer !== "" &&
+            evalResult.selectorsUsed.tweetContainer !==
+              SELECTORS.tweetContainer[0]) ||
+          (evalResult.selectorsUsed.tweetText !== "" &&
+            evalResult.selectorsUsed.tweetText !== SELECTORS.tweetText[0]);
+
+        return {
+          tweets: evalResult.tweets,
+          selectorsUsed: evalResult.selectorsUsed,
+          fallbacksTriggered,
+          attempts: attempt,
+        };
+      } catch (err) {
+        lastError = err;
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        }
+      }
+    }
   } finally {
     await browser.close();
   }
+
+  throw lastError;
 }
 
 export default async function handler(
@@ -97,10 +202,10 @@ export default async function handler(
   try {
     await initDb();
 
-    const tweets = await scrapeTweets();
+    const result = await scrapeTweetsWithRetry();
     let newCount = 0;
 
-    for (const tweet of tweets) {
+    for (const tweet of result.tweets) {
       const exists = await tweetExists(tweet.tweetId);
       if (exists) continue;
 
@@ -116,13 +221,41 @@ export default async function handler(
       newCount++;
     }
 
+    // Degradation alert if fallback selectors were used
+    if (result.fallbacksTriggered) {
+      await sendAlert(
+        "[KJ Tweets] Selector degradation — fallback in use",
+        `Scraper used fallback selectors during run.\nSelectors used: ${JSON.stringify(result.selectorsUsed, null, 2)}\nTweets scraped: ${result.tweets.length}`
+      );
+    }
+
+    // Low tweet count alert
+    if (result.tweets.length < LOW_TWEET_THRESHOLD) {
+      await sendAlert(
+        `[KJ Tweets] Low tweet count — only ${result.tweets.length} tweets extracted`,
+        `Expected at least ${LOW_TWEET_THRESHOLD} tweets but got ${result.tweets.length}.\nSelectors used: ${JSON.stringify(result.selectorsUsed, null, 2)}`
+      );
+    }
+
     return res.status(200).json({
       success: true,
-      scraped: tweets.length,
+      scraped: result.tweets.length,
       new: newCount,
+      attempts: result.attempts,
+      selectorsUsed: result.selectorsUsed,
+      fallbacksTriggered: result.fallbacksTriggered,
     });
   } catch (error) {
     console.error("Scraper error:", error);
-    return res.status(500).json({ error: String(error) });
+    await sendAlert(
+      "[KJ Tweets] Scraper FAILED — 0 tweets extracted",
+      `Scraper failed after ${MAX_ATTEMPTS} attempts.\nError: ${String(error)}`
+    );
+    return res.status(500).json({
+      success: false,
+      error: String(error),
+      attempts: MAX_ATTEMPTS,
+      alertSent: true,
+    });
   }
 }
