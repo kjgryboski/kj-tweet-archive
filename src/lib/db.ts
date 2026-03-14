@@ -31,58 +31,121 @@ export interface PaginatedTweets {
 export async function getTweetsPaginated(
   cursor?: string,
   limit: number = 30,
-  sort: "newest" | "oldest" | "likes" = "newest"
+  sort: "newest" | "oldest" | "likes" = "newest",
+  q?: string
 ): Promise<PaginatedTweets> {
   const safeLimit = Math.min(Math.max(1, limit || 30), 100);
   const fetchLimit = safeLimit + 1;
+  const pattern = q ? '%' + q + '%' : null;
 
   let rows;
   if (sort === "oldest") {
     if (cursor) {
-      ({ rows } = await sql`
-        SELECT * FROM tweets
-        WHERE (created_at, id) > (
-          SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
-        )
-        ORDER BY created_at ASC, id ASC
-        LIMIT ${fetchLimit}
-      `);
+      if (q) {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (created_at, id) > (
+            SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
+          )
+          AND (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          ORDER BY created_at ASC, id ASC
+          LIMIT ${fetchLimit}
+        `);
+      } else {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (created_at, id) > (
+            SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
+          )
+          ORDER BY created_at ASC, id ASC
+          LIMIT ${fetchLimit}
+        `);
+      }
     } else {
-      ({ rows } = await sql`
-        SELECT * FROM tweets
-        ORDER BY created_at ASC, id ASC
-        LIMIT ${fetchLimit}
-      `);
+      if (q) {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          ORDER BY created_at ASC, id ASC
+          LIMIT ${fetchLimit}
+        `);
+      } else {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          ORDER BY created_at ASC, id ASC
+          LIMIT ${fetchLimit}
+        `);
+      }
     }
   } else if (sort === "likes") {
     if (cursor) {
-      ({ rows } = await sql`
-        SELECT * FROM tweets
-        WHERE (likes, id) < (SELECT likes, id FROM tweets WHERE x_tweet_id = ${cursor})
-        ORDER BY likes DESC, id DESC
-        LIMIT ${fetchLimit}
-      `);
+      if (q) {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (likes, id) < (SELECT likes, id FROM tweets WHERE x_tweet_id = ${cursor})
+          AND (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          ORDER BY likes DESC, id DESC
+          LIMIT ${fetchLimit}
+        `);
+      } else {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (likes, id) < (SELECT likes, id FROM tweets WHERE x_tweet_id = ${cursor})
+          ORDER BY likes DESC, id DESC
+          LIMIT ${fetchLimit}
+        `);
+      }
     } else {
-      ({ rows } = await sql`
-        SELECT * FROM tweets ORDER BY likes DESC, id DESC LIMIT ${fetchLimit}
-      `);
+      if (q) {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          ORDER BY likes DESC, id DESC
+          LIMIT ${fetchLimit}
+        `);
+      } else {
+        ({ rows } = await sql`
+          SELECT * FROM tweets ORDER BY likes DESC, id DESC LIMIT ${fetchLimit}
+        `);
+      }
     }
   } else {
     if (cursor) {
-      ({ rows } = await sql`
-        SELECT * FROM tweets
-        WHERE (created_at, id) < (
-          SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
-        )
-        ORDER BY created_at DESC, id DESC
-        LIMIT ${fetchLimit}
-      `);
+      if (q) {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (created_at, id) < (
+            SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
+          )
+          AND (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          ORDER BY created_at DESC, id DESC
+          LIMIT ${fetchLimit}
+        `);
+      } else {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (created_at, id) < (
+            SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
+          )
+          ORDER BY created_at DESC, id DESC
+          LIMIT ${fetchLimit}
+        `);
+      }
     } else {
-      ({ rows } = await sql`
-        SELECT * FROM tweets
-        ORDER BY created_at DESC, id DESC
-        LIMIT ${fetchLimit}
-      `);
+      if (q) {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          WHERE (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          ORDER BY created_at DESC, id DESC
+          LIMIT ${fetchLimit}
+        `);
+      } else {
+        ({ rows } = await sql`
+          SELECT * FROM tweets
+          ORDER BY created_at DESC, id DESC
+          LIMIT ${fetchLimit}
+        `);
+      }
     }
   }
 
@@ -136,11 +199,4 @@ export async function insertTweet(tweet: {
 
 export async function updateTweetLikes(x_tweet_id: string, likes: number) {
   await sql`UPDATE tweets SET likes = ${likes} WHERE x_tweet_id = ${x_tweet_id}`;
-}
-
-export async function tweetExists(x_tweet_id: string): Promise<boolean> {
-  const { rows } = await sql`
-    SELECT 1 FROM tweets WHERE x_tweet_id = ${x_tweet_id} LIMIT 1
-  `;
-  return rows.length > 0;
 }

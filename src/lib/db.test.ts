@@ -6,7 +6,7 @@ vi.mock("@vercel/postgres", () => ({
   sql: mockSql,
 }));
 
-import { initDb, insertTweet, tweetExists, getTweetsPaginated, updateTweetLikes } from "./db";
+import { initDb, insertTweet, getTweetsPaginated, updateTweetLikes } from "./db";
 
 beforeEach(() => {
   mockSql.mockReset();
@@ -42,20 +42,6 @@ describe("insertTweet", () => {
       message: "Message",
     });
     expect(mockSql).toHaveBeenCalled();
-  });
-});
-
-describe("tweetExists", () => {
-  it("returns true when tweet found", async () => {
-    mockSql.mockResolvedValue({ rows: [{ "?column?": 1 }] });
-    const exists = await tweetExists("123");
-    expect(exists).toBe(true);
-  });
-
-  it("returns false when tweet not found", async () => {
-    mockSql.mockResolvedValue({ rows: [] });
-    const exists = await tweetExists("999");
-    expect(exists).toBe(false);
   });
 });
 
@@ -110,6 +96,23 @@ describe("getTweetsPaginated", () => {
     mockSql.mockResolvedValue({ rows: [] });
     await getTweetsPaginated(undefined, 5, "likes");
     expect(mockSql).toHaveBeenCalled();
+  });
+
+  it("applies ILIKE filter when q param is provided", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    await getTweetsPaginated(undefined, 5, "newest", "bitcoin");
+    expect(mockSql).toHaveBeenCalled();
+    const call = mockSql.mock.calls[mockSql.mock.calls.length - 1];
+    expect(JSON.stringify(call)).toContain("bitcoin");
+  });
+
+  it("applies ILIKE filter with cursor and search", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    await getTweetsPaginated("cursor123", 5, "newest", "bitcoin");
+    expect(mockSql).toHaveBeenCalled();
+    const call = mockSql.mock.calls[mockSql.mock.calls.length - 1];
+    expect(JSON.stringify(call)).toContain("bitcoin");
+    expect(JSON.stringify(call)).toContain("cursor123");
   });
 });
 

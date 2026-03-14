@@ -67,7 +67,7 @@ describe("GET /api/tweets", () => {
     const { req, res } = createMockReqRes("GET", { cursor: "abc123", limit: "15" });
     await handler(req, res);
 
-    expect(mockGetTweetsPaginated).toHaveBeenCalledWith("abc123", 15, "newest");
+    expect(mockGetTweetsPaginated).toHaveBeenCalledWith("abc123", 15, "newest", undefined);
   });
 
   it("passes sort param to getTweetsPaginated", async () => {
@@ -76,14 +76,35 @@ describe("GET /api/tweets", () => {
     const { req, res } = createMockReqRes("GET", { sort: "oldest" });
     await handler(req, res);
 
-    expect(mockGetTweetsPaginated).toHaveBeenCalledWith(undefined, 30, "oldest");
+    expect(mockGetTweetsPaginated).toHaveBeenCalledWith(undefined, 30, "oldest", undefined);
   });
 
   it("passes sort=likes to getTweetsPaginated", async () => {
     mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
     const { req, res } = createMockReqRes("GET", { sort: "likes" });
     await handler(req, res);
-    expect(mockGetTweetsPaginated).toHaveBeenCalledWith(undefined, 30, "likes");
+    expect(mockGetTweetsPaginated).toHaveBeenCalledWith(undefined, 30, "likes", undefined);
+  });
+
+  it("passes q search param to getTweetsPaginated", async () => {
+    mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
+    const { req, res } = createMockReqRes("GET", { q: "bitcoin" });
+    await handler(req, res);
+    expect(mockGetTweetsPaginated).toHaveBeenCalledWith(undefined, 30, "newest", "bitcoin");
+  });
+
+  it("does not pass q when not provided", async () => {
+    mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
+    const { req, res } = createMockReqRes("GET");
+    await handler(req, res);
+    expect(mockGetTweetsPaginated).toHaveBeenCalledWith(undefined, 30, "newest", undefined);
+  });
+
+  it("does not set Cache-Control when q is provided", async () => {
+    mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
+    const { req, res } = createMockReqRes("GET", { q: "test" });
+    await handler(req, res);
+    expect(res.setHeader).not.toHaveBeenCalled();
   });
 
   it("returns 405 for non-GET methods", async () => {

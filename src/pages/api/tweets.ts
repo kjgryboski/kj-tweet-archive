@@ -1,5 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getTweetsPaginated } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
+
+const checkRateLimit = rateLimit({ windowMs: 60_000, max: 60 });
 
 export default async function handler(
   req: NextApiRequest,
@@ -16,10 +19,11 @@ export default async function handler(
     const sort = (["newest", "oldest", "likes"] as const).includes(sortParam as any)
       ? (sortParam as "newest" | "oldest" | "likes")
       : "newest";
+    const q = (req.query.q as string) || undefined;
 
-    const result = await getTweetsPaginated(cursor, limit, sort);
+    const result = await getTweetsPaginated(cursor, limit, sort, q);
 
-    if (!cursor && sort === "newest") {
+    if (!cursor && sort === "newest" && !q) {
       res.setHeader("Cache-Control", "public, s-maxage=21600, stale-while-revalidate=3600");
     }
 
