@@ -15,6 +15,7 @@ function createMockReqRes(method = "GET") {
   const res = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
+    setHeader: vi.fn(),
   } as unknown as NextApiResponse;
   return { req, res };
 }
@@ -33,6 +34,18 @@ describe("GET /api/tweets", () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith(tweets);
+  });
+
+  it("sets Cache-Control header on success", async () => {
+    mockGetTweets.mockResolvedValue([]);
+
+    const { req, res } = createMockReqRes("GET");
+    await handler(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith(
+      "Cache-Control",
+      "public, s-maxage=21600, stale-while-revalidate=3600"
+    );
   });
 
   it("returns 405 for non-GET methods", async () => {

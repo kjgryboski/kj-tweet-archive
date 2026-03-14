@@ -12,6 +12,7 @@ export default async function handler(
 
   try {
     const tweets = await getTweets();
+    res.setHeader("Cache-Control", "public, s-maxage=21600, stale-while-revalidate=3600");
     return res.status(200).json(tweets);
   } catch (error) {
     console.error("Error fetching tweets:", error);
