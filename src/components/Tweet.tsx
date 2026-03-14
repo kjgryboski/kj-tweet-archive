@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Card, CardContent, Typography, Box, Avatar, IconButton, Tooltip } from "@mui/material";
 import { styled, Theme } from "@mui/material/styles";
 import React from "react";
+import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 
 export interface TweetProps {
   id: string;
@@ -15,6 +16,7 @@ export interface TweetProps {
   mediaUrls?: string[];
   xLink?: string;
   searchTerm?: string;
+  likes?: number;
 }
 
 const StyledCard = styled(Card)(({ theme }: { theme: Theme }) => ({
@@ -133,6 +135,7 @@ export default function Tweet({
   mediaUrls,
   xLink,
   searchTerm = "",
+  likes = 0,
 }: TweetProps) {
   const formattedDate = formatDistanceToNow(new Date(createdAt), {
     addSuffix: true,
@@ -221,6 +224,17 @@ export default function Tweet({
 
           <Title variant="h6">{title ? highlightSearchTerm(title, searchTerm) : "Tweet"}</Title>
           <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
+
+          <Box sx={{ display: "flex", alignItems: "center", mt: "auto", pt: 1 }}>
+            <FavoriteBorderIcon sx={{ fontSize: 16, mr: 0.5, color: "text.secondary" }} />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              fontFamily='"Roboto Mono", "Courier New", monospace'
+            >
+              {likes}
+            </Typography>
+          </Box>
 
           {mediaUrls && mediaUrls.length > 0 && (
             <Box sx={{ mt: "auto" }}>

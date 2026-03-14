@@ -25,7 +25,7 @@ export default function Home() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const [sort, setSort] = useState<"newest" | "oldest">("newest");
+  const [sort, setSort] = useState<"newest" | "oldest" | "likes">("newest");
 
   const loadTweets = useCallback(async (cursor?: string) => {
     if (cursor) {
@@ -57,7 +57,7 @@ export default function Home() {
     }
   }, [sort]);
 
-  const handleSortChange = (_: React.MouseEvent<HTMLElement>, newSort: "newest" | "oldest" | null) => {
+  const handleSortChange = (_: React.MouseEvent<HTMLElement>, newSort: "newest" | "oldest" | "likes" | null) => {
     if (newSort === null) return;
     setSort(newSort);
     setTweets([]);
@@ -183,6 +183,9 @@ export default function Home() {
                 </ToggleButton>
                 <ToggleButton value="oldest" sx={{ fontFamily: '"Roboto Mono", monospace', textTransform: "none", px: 2 }}>
                   Oldest
+                </ToggleButton>
+                <ToggleButton value="likes" sx={{ fontFamily: '"Roboto Mono", monospace', textTransform: "none", px: 2 }}>
+                  Likes
                 </ToggleButton>
               </ToggleButtonGroup>
             </Box>

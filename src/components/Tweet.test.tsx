@@ -66,4 +66,9 @@ describe("Tweet", () => {
     const img = screen.getByAltText("Tweet media");
     expect(img).toBeInTheDocument();
   });
+
+  it("renders like count", () => {
+    renderWithTheme(<Tweet {...defaultProps} likes={42} />);
+    expect(screen.getByText("42")).toBeInTheDocument();
+  });
 });
