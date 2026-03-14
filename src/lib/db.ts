@@ -15,6 +15,61 @@ export async function initDb() {
       scraped_at TIMESTAMP DEFAULT NOW()
     )
   `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_tweets_created_at_id ON tweets(created_at DESC, id DESC)
+  `;
+}
+
+export interface PaginatedTweets {
+  tweets: TweetProps[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
+export async function getTweetsPaginated(
+  cursor?: string,
+  limit: number = 30
+): Promise<PaginatedTweets> {
+  const safeLimit = Math.min(Math.max(1, limit || 30), 100);
+  const fetchLimit = safeLimit + 1;
+
+  let rows;
+  if (cursor) {
+    ({ rows } = await sql`
+      SELECT * FROM tweets
+      WHERE (created_at, id) < (
+        SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
+      )
+      ORDER BY created_at DESC, id DESC
+      LIMIT ${fetchLimit}
+    `);
+  } else {
+    ({ rows } = await sql`
+      SELECT * FROM tweets
+      ORDER BY created_at DESC, id DESC
+      LIMIT ${fetchLimit}
+    `);
+  }
+
+  const hasMore = rows.length > safeLimit;
+  const resultRows = hasMore ? rows.slice(0, safeLimit) : rows;
+
+  const tweets = resultRows.map((row) => ({
+    id: row.x_tweet_id || String(row.id),
+    text: row.message,
+    title: row.title,
+    createdAt: row.created_at?.toISOString() || new Date().toISOString(),
+    username: row.username || "KJFUTURES",
+    name: row.name || "KJ",
+    xLink: row.x_link,
+  }));
+
+  const lastTweet = resultRows[resultRows.length - 1];
+  const nextCursor = hasMore && lastTweet
+    ? (lastTweet.x_tweet_id || String(lastTweet.id))
+    : null;
+
+  return { tweets, hasMore, nextCursor };
 }
 
 export async function getTweets(): Promise<TweetProps[]> {

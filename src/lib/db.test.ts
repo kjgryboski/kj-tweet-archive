@@ -6,7 +6,7 @@ vi.mock("@vercel/postgres", () => ({
   sql: mockSql,
 }));
 
-import { initDb, getTweets, insertTweet, tweetExists } from "./db";
+import { initDb, getTweets, insertTweet, tweetExists, getTweetsPaginated } from "./db";
 
 beforeEach(() => {
   mockSql.mockReset();
@@ -131,5 +131,47 @@ describe("tweetExists", () => {
     mockSql.mockResolvedValue({ rows: [] });
     const exists = await tweetExists("999");
     expect(exists).toBe(false);
+  });
+});
+
+describe("getTweetsPaginated", () => {
+  it("returns limited results with hasMore flag", async () => {
+    const rows = Array.from({ length: 4 }, (_, i) => ({
+      id: i + 1,
+      x_tweet_id: String(100 + i),
+      message: `Tweet ${i}`,
+      title: `Title ${i}`,
+      created_at: new Date(`2026-01-${15 - i}T12:00:00Z`),
+      username: "KJFUTURES",
+      name: "KJ",
+      x_link: `https://x.com/KJFUTURES/status/${100 + i}`,
+    }));
+    mockSql.mockResolvedValue({ rows });
+
+    const result = await getTweetsPaginated(undefined, 3);
+    expect(result.tweets).toHaveLength(3);
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).toBe("102");
+  });
+
+  it("returns all results when fewer than limit", async () => {
+    const rows = [{
+      id: 1, x_tweet_id: "200", message: "Only tweet", title: "Only",
+      created_at: new Date("2026-01-15T12:00:00Z"),
+      username: "KJFUTURES", name: "KJ",
+      x_link: "https://x.com/KJFUTURES/status/200",
+    }];
+    mockSql.mockResolvedValue({ rows });
+
+    const result = await getTweetsPaginated(undefined, 3);
+    expect(result.tweets).toHaveLength(1);
+    expect(result.hasMore).toBe(false);
+    expect(result.nextCursor).toBeNull();
+  });
+
+  it("calls sql with cursor when provided", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    await getTweetsPaginated("cursor123", 5);
+    expect(mockSql).toHaveBeenCalled();
   });
 });
