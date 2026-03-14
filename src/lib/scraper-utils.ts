@@ -7,11 +7,23 @@
  * must be reflected in BOTH this file and the `page.evaluate()` callback.
  */
 
+import { SELECTORS as DEFAULT_SELECTORS, type SelectorKey } from "./scraper-selectors";
+
 export interface ScrapedTweet {
   tweetId: string;
   text: string;
   timestamp: string;
   url: string;
+}
+
+export type SelectorConfig = Record<SelectorKey, readonly string[]>;
+
+function resolveChild(parent: Element, selectors: readonly string[]): Element | null {
+  for (const sel of selectors) {
+    const el = parent.querySelector(sel);
+    if (el) return el;
+  }
+  return null;
 }
 
 export function generateTitle(text: string): string {
@@ -20,17 +32,29 @@ export function generateTitle(text: string): string {
   return text.substring(0, 60).trim() + "...";
 }
 
-export function parseTweetElements(root: ParentNode): ScrapedTweet[] {
-  const tweetElements = root.querySelectorAll('[data-testid="tweet"]');
+export function parseTweetElements(
+  root: ParentNode,
+  selectors: SelectorConfig = DEFAULT_SELECTORS
+): ScrapedTweet[] {
+  // Collect tweet elements using the first selector that yields results
+  let tweetElements: Element[] = [];
+  for (const sel of selectors.tweetContainer) {
+    const found = Array.from(root.querySelectorAll(sel));
+    if (found.length > 0) {
+      tweetElements = found;
+      break;
+    }
+  }
+
   const results: ScrapedTweet[] = [];
 
   tweetElements.forEach((el) => {
     // Skip retweets
-    const socialContext = el.querySelector('[data-testid="socialContext"]');
+    const socialContext = resolveChild(el, selectors.socialContext);
     if (socialContext?.textContent?.includes("reposted")) return;
 
     // Get tweet link to extract ID
-    const timeEl = el.querySelector("time");
+    const timeEl = resolveChild(el, selectors.timeElement);
     const linkEl = timeEl?.closest("a");
     const href = linkEl?.getAttribute("href") || "";
     const tweetIdMatch = href.match(/status\/(\d+)/);
@@ -41,7 +65,7 @@ export function parseTweetElements(root: ParentNode): ScrapedTweet[] {
     if (allText.includes("Replying to @")) return;
 
     // Get tweet text
-    const tweetTextEl = el.querySelector('[data-testid="tweetText"]');
+    const tweetTextEl = resolveChild(el, selectors.tweetText);
     const text = tweetTextEl?.textContent || "";
     if (!text.trim()) return;
 

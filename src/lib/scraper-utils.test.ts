@@ -122,4 +122,39 @@ describe("parseTweetElements", () => {
     const results = parseTweetElements(container);
     expect(results).toHaveLength(0);
   });
+
+  it("accepts custom selectors parameter", () => {
+    const container = document.createElement("div");
+
+    const article = document.createElement("article");
+    article.setAttribute("role", "article");
+
+    const link = document.createElement("a");
+    link.setAttribute("href", "/KJFUTURES/status/55555");
+    const time = document.createElement("time");
+    time.setAttribute("datetime", "2026-03-10T08:00:00.000Z");
+    time.textContent = "Mar 10";
+    link.appendChild(time);
+    article.appendChild(link);
+
+    const textDiv = document.createElement("div");
+    textDiv.setAttribute("lang", "en");
+    textDiv.setAttribute("dir", "ltr");
+    textDiv.textContent = "Custom selector tweet";
+    article.appendChild(textDiv);
+
+    container.appendChild(article);
+
+    const customSelectors = {
+      tweetContainer: ['article[role="article"]'],
+      tweetText: ['div[lang][dir="ltr"]'],
+      socialContext: ['[data-testid="socialContext"]'],
+      timeElement: ['time[datetime]'],
+    };
+
+    const results = parseTweetElements(container, customSelectors);
+    expect(results).toHaveLength(1);
+    expect(results[0].text).toBe("Custom selector tweet");
+    expect(results[0].tweetId).toBe("55555");
+  });
 });
