@@ -12,10 +12,11 @@ export default async function handler(
   try {
     const cursor = req.query.cursor as string | undefined;
     const limit = parseInt(req.query.limit as string) || 30;
+    const sort = (req.query.sort as string) === "oldest" ? "oldest" : "newest";
 
-    const result = await getTweetsPaginated(cursor, limit);
+    const result = await getTweetsPaginated(cursor, limit, sort);
 
-    if (!cursor) {
+    if (!cursor && sort === "newest") {
       res.setHeader("Cache-Control", "public, s-maxage=21600, stale-while-revalidate=3600");
     }
 
