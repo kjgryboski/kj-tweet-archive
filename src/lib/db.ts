@@ -200,6 +200,24 @@ export async function insertTweet(tweet: {
   `;
 }
 
+export async function getTweetById(x_tweet_id: string): Promise<TweetProps | null> {
+  const { rows } = await sql`
+    SELECT * FROM tweets WHERE x_tweet_id = ${x_tweet_id} LIMIT 1
+  `;
+  if (rows.length === 0) return null;
+  const row = rows[0];
+  return {
+    id: row.x_tweet_id || String(row.id),
+    text: row.message,
+    title: row.title,
+    createdAt: row.created_at?.toISOString() || new Date().toISOString(),
+    username: row.username || "KJFUTURES",
+    name: row.name || "KJ",
+    xLink: row.x_link,
+    likes: row.likes || 0,
+  };
+}
+
 export async function getTweetCount(): Promise<number> {
   const { rows } = await sql`SELECT COUNT(*) as count FROM tweets`;
   return parseInt(rows[0].count, 10);

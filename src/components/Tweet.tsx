@@ -17,6 +17,7 @@ export interface TweetProps {
   xLink?: string;
   searchTerm?: string;
   likes?: number;
+  fullText?: boolean;
 }
 
 const StyledCard = styled(Card)(({ theme }: { theme: Theme }) => ({
@@ -149,6 +150,7 @@ export default function Tweet({
   xLink,
   searchTerm = "",
   likes = 0,
+  fullText = false,
 }: TweetProps) {
   const formattedDate = formatDistanceToNow(new Date(createdAt), {
     addSuffix: true,
@@ -238,9 +240,13 @@ export default function Tweet({
           {title && title !== text.trim() && !text.trim().startsWith(title) && (
             <Title variant="h6">{highlightSearchTerm(title, searchTerm)}</Title>
           )}
-          <TweetTextWrapper>
+          {fullText ? (
             <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
-          </TweetTextWrapper>
+          ) : (
+            <TweetTextWrapper>
+              <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
+            </TweetTextWrapper>
+          )}
 
           <Box sx={{ display: "flex", alignItems: "center", mt: "auto", pt: 1 }}>
             <FavoriteBorderIcon sx={{ fontSize: 16, mr: 0.5, color: "text.secondary" }} />

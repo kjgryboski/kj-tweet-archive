@@ -6,7 +6,7 @@ vi.mock("@vercel/postgres", () => ({
   sql: mockSql,
 }));
 
-import { initDb, insertTweet, getTweetsPaginated, getTweetCount, updateTweetLikes } from "./db";
+import { initDb, insertTweet, getTweetsPaginated, getTweetById, getTweetCount, updateTweetLikes } from "./db";
 
 beforeEach(() => {
   mockSql.mockReset();
@@ -113,6 +113,30 @@ describe("getTweetsPaginated", () => {
     const call = mockSql.mock.calls[mockSql.mock.calls.length - 1];
     expect(JSON.stringify(call)).toContain("bitcoin");
     expect(JSON.stringify(call)).toContain("cursor123");
+  });
+});
+
+describe("getTweetById", () => {
+  it("returns tweet when found", async () => {
+    mockSql.mockResolvedValue({
+      rows: [{
+        id: 1, x_tweet_id: "123", message: "Hello", title: "Hi",
+        created_at: new Date("2026-01-01T00:00:00Z"),
+        username: "KJFUTURES", name: "KJ",
+        x_link: "https://x.com/KJFUTURES/status/123", likes: 5,
+      }],
+    });
+    const tweet = await getTweetById("123");
+    expect(tweet).not.toBeNull();
+    expect(tweet!.id).toBe("123");
+    expect(tweet!.text).toBe("Hello");
+    expect(tweet!.likes).toBe(5);
+  });
+
+  it("returns null when not found", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    const tweet = await getTweetById("999");
+    expect(tweet).toBeNull();
   });
 });
 

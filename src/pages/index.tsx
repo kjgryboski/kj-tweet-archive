@@ -132,7 +132,7 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta property="og:title" content="KJ Tweets — The Archive" />
         <meta property="og:description" content="View KJ tweets in a minimal, distraction-free interface" />
-        <meta property="og:image" content="https://kjtweets.com/kj.jpg" />
+        <meta property="og:image" content="https://kjtweets.com/og-card.png" />
         <meta property="og:url" content="https://kjtweets.com" />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
