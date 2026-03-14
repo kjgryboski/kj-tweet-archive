@@ -27,7 +27,7 @@ const StyledCard = styled(Card)(({ theme }: { theme: Theme }) => ({
   boxShadow: "none",
   position: "relative",
   height: "100%",
-  minHeight: "300px",
+  minHeight: "180px",
   display: "flex",
   flexDirection: "column",
   transition: "transform 0.2s ease, box-shadow 0.2s ease",
