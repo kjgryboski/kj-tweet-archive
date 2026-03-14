@@ -18,6 +18,8 @@ export async function initDb() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_tweets_created_at_id ON tweets(created_at DESC, id DESC)
   `;
+  await sql`ALTER TABLE tweets ADD COLUMN IF NOT EXISTS likes INTEGER DEFAULT 0`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tweets_likes_id ON tweets(likes DESC, id DESC)`;
 }
 
 export interface PaginatedTweets {
@@ -29,7 +31,7 @@ export interface PaginatedTweets {
 export async function getTweetsPaginated(
   cursor?: string,
   limit: number = 30,
-  sort: "newest" | "oldest" = "newest"
+  sort: "newest" | "oldest" | "likes" = "newest"
 ): Promise<PaginatedTweets> {
   const safeLimit = Math.min(Math.max(1, limit || 30), 100);
   const fetchLimit = safeLimit + 1;
@@ -50,6 +52,19 @@ export async function getTweetsPaginated(
         SELECT * FROM tweets
         ORDER BY created_at ASC, id ASC
         LIMIT ${fetchLimit}
+      `);
+    }
+  } else if (sort === "likes") {
+    if (cursor) {
+      ({ rows } = await sql`
+        SELECT * FROM tweets
+        WHERE (likes, id) < (SELECT likes, id FROM tweets WHERE x_tweet_id = ${cursor})
+        ORDER BY likes DESC, id DESC
+        LIMIT ${fetchLimit}
+      `);
+    } else {
+      ({ rows } = await sql`
+        SELECT * FROM tweets ORDER BY likes DESC, id DESC LIMIT ${fetchLimit}
       `);
     }
   } else {
@@ -82,6 +97,7 @@ export async function getTweetsPaginated(
     username: row.username || "KJFUTURES",
     name: row.name || "KJ",
     xLink: row.x_link,
+    likes: row.likes || 0,
   }));
 
   const lastTweet = resultRows[resultRows.length - 1];
@@ -104,6 +120,7 @@ export async function getTweets(): Promise<TweetProps[]> {
     username: row.username || "KJFUTURES",
     name: row.name || "KJ",
     xLink: row.x_link,
+    likes: row.likes || 0,
   }));
 }
 
@@ -115,9 +132,10 @@ export async function insertTweet(tweet: {
   username?: string;
   name?: string;
   created_at?: string;
+  likes?: number;
 }) {
   await sql`
-    INSERT INTO tweets (x_tweet_id, title, message, x_link, username, name, created_at)
+    INSERT INTO tweets (x_tweet_id, title, message, x_link, username, name, created_at, likes)
     VALUES (
       ${tweet.x_tweet_id || null},
       ${tweet.title},
@@ -125,10 +143,15 @@ export async function insertTweet(tweet: {
       ${tweet.x_link || null},
       ${tweet.username || "KJFUTURES"},
       ${tweet.name || "KJ"},
-      ${tweet.created_at || new Date().toISOString()}
+      ${tweet.created_at || new Date().toISOString()},
+      ${tweet.likes || 0}
     )
-    ON CONFLICT (x_tweet_id) DO NOTHING
+    ON CONFLICT (x_tweet_id) DO UPDATE SET likes = EXCLUDED.likes
   `;
+}
+
+export async function updateTweetLikes(x_tweet_id: string, likes: number) {
+  await sql`UPDATE tweets SET likes = ${likes} WHERE x_tweet_id = ${x_tweet_id}`;
 }
 
 export async function tweetExists(x_tweet_id: string): Promise<boolean> {

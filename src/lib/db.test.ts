@@ -6,7 +6,7 @@ vi.mock("@vercel/postgres", () => ({
   sql: mockSql,
 }));
 
-import { initDb, getTweets, insertTweet, tweetExists, getTweetsPaginated } from "./db";
+import { initDb, getTweets, insertTweet, tweetExists, getTweetsPaginated, updateTweetLikes } from "./db";
 
 beforeEach(() => {
   mockSql.mockReset();
@@ -34,6 +34,7 @@ describe("getTweets", () => {
           username: "KJFUTURES",
           name: "KJ",
           x_link: "https://x.com/KJFUTURES/status/123456",
+          likes: 5,
         },
       ],
     });
@@ -48,6 +49,7 @@ describe("getTweets", () => {
         username: "KJFUTURES",
         name: "KJ",
         xLink: "https://x.com/KJFUTURES/status/123456",
+        likes: 5,
       },
     ]);
   });
@@ -92,6 +94,14 @@ describe("getTweets", () => {
     expect(tweets[0].username).toBe("KJFUTURES");
     expect(tweets[0].name).toBe("KJ");
     expect(tweets[0].createdAt).toBeDefined();
+  });
+
+  it("includes likes in row mapping", async () => {
+    mockSql.mockResolvedValue({
+      rows: [{ id: 1, x_tweet_id: "999", message: "Test", title: null, created_at: new Date(), username: "KJ", name: "KJ", x_link: null, likes: 15 }],
+    });
+    const tweets = await getTweets();
+    expect(tweets[0].likes).toBe(15);
   });
 });
 
@@ -178,6 +188,20 @@ describe("getTweetsPaginated", () => {
   it("respects sort=oldest parameter", async () => {
     mockSql.mockResolvedValue({ rows: [] });
     await getTweetsPaginated(undefined, 5, "oldest");
+    expect(mockSql).toHaveBeenCalled();
+  });
+
+  it("respects sort=likes parameter", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    await getTweetsPaginated(undefined, 5, "likes");
+    expect(mockSql).toHaveBeenCalled();
+  });
+});
+
+describe("updateTweetLikes", () => {
+  it("calls sql with correct UPDATE", async () => {
+    mockSql.mockResolvedValue({});
+    await updateTweetLikes("tweet123", 42);
     expect(mockSql).toHaveBeenCalled();
   });
 });
