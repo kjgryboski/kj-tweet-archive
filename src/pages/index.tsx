@@ -21,6 +21,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<TweetProps[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const { colorMode, toggleColorMode } = useThemeContext();
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -99,7 +100,7 @@ export default function Home() {
 
   const handleServerSearch = useCallback(async (term: string) => {
     setSearchTerm(term);
-    setIsLoading(true);
+    setIsSearching(true);
     try {
       const params = new URLSearchParams({ q: term, limit: "100" });
       const res = await fetch(`/api/tweets?${params}`);
@@ -110,7 +111,7 @@ export default function Home() {
       console.error("Search error:", error);
       setSearchResults([]);
     } finally {
-      setIsLoading(false);
+      setIsSearching(false);
     }
   }, []);
 
@@ -202,7 +203,7 @@ export default function Home() {
               onServerSearch={handleServerSearch}
               onClear={handleClearSearch}
               resultCount={searchResults?.length}
-              isSearching={isLoading && searchTerm !== ""}
+              isSearching={isSearching}
             />
           )}
           {!isLoading && tweets.length > 0 && (

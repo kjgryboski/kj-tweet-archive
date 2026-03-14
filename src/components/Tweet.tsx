@@ -30,9 +30,18 @@ const StyledCard = styled(Card)(({ theme }: { theme: Theme }) => ({
   minHeight: "180px",
   display: "flex",
   flexDirection: "column",
-  transition: "transform 0.2s ease, box-shadow 0.2s ease",
+  transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
   width: "100%",
   minWidth: 0,
+  "&:hover": {
+    transform: "translateY(-2px)",
+    boxShadow: theme.palette.mode === "dark"
+      ? "0 4px 12px rgba(255, 255, 255, 0.08)"
+      : "0 4px 12px rgba(0, 0, 0, 0.1)",
+    borderColor: theme.palette.mode === "dark"
+      ? "rgba(255, 255, 255, 0.2)"
+      : "rgba(0, 0, 0, 0.2)",
+  },
 }));
 
 // Create a styled version of CardContent to remove default padding
@@ -64,34 +73,38 @@ const Title = styled(Typography)(({ theme }: { theme: Theme }) => ({
   },
 }));
 
-const TweetText = styled(Typography)(({ theme }: { theme: Theme }) => ({
-  fontSize: "1rem",
-  lineHeight: 1.5,
-  // marginBottom: theme.spacing(1),
-  letterSpacing: "-0.01em",
-  fontFamily: '"Roboto Mono", "Courier New", monospace',
+const TweetTextWrapper = styled(Box)(({ theme }: { theme: Theme }) => ({
+  position: "relative",
   flex: 1,
   maxHeight: "200px",
-  overflowY: "auto",
-  wordBreak: "break-word",
-  overflowWrap: "break-word",
-  hyphens: "auto",
-  "&::-webkit-scrollbar": {
-    width: "6px",
-  },
-  "&::-webkit-scrollbar-track": {
-    background: "transparent",
-  },
-  "&::-webkit-scrollbar-thumb": {
-    background: theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.2)" : "rgba(0, 0, 0, 0.2)",
-    borderRadius: "3px",
-  },
-  "&::-webkit-scrollbar-thumb:hover": {
-    background: theme.palette.mode === "dark" ? "rgba(255, 255, 255, 0.3)" : "rgba(0, 0, 0, 0.3)",
+  overflow: "hidden",
+  "&::after": {
+    content: '""',
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "40px",
+    background: `linear-gradient(transparent, ${theme.palette.background.paper})`,
+    pointerEvents: "none",
   },
   [theme.breakpoints.down("sm")]: {
     maxHeight: "none",
-    overflowY: "visible",
+    "&::after": {
+      display: "none",
+    },
+  },
+}));
+
+const TweetText = styled(Typography)(({ theme }: { theme: Theme }) => ({
+  fontSize: "1rem",
+  lineHeight: 1.5,
+  letterSpacing: "-0.01em",
+  fontFamily: '"Roboto Mono", "Courier New", monospace',
+  wordBreak: "break-word",
+  overflowWrap: "break-word",
+  hyphens: "auto",
+  [theme.breakpoints.down("sm")]: {
     fontSize: "0.9rem",
   },
 }));
@@ -225,7 +238,9 @@ export default function Tweet({
           {title && title !== text.trim() && !text.trim().startsWith(title) && (
             <Title variant="h6">{highlightSearchTerm(title, searchTerm)}</Title>
           )}
-          <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
+          <TweetTextWrapper>
+            <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
+          </TweetTextWrapper>
 
           <Box sx={{ display: "flex", alignItems: "center", mt: "auto", pt: 1 }}>
             <FavoriteBorderIcon sx={{ fontSize: 16, mr: 0.5, color: "text.secondary" }} />
