@@ -56,4 +56,22 @@ describe("TweetList", () => {
     expect(screen.getByText("Tweet one")).toBeInTheDocument();
     expect(screen.getByText("Loading more...")).toBeInTheDocument();
   });
+
+  it("shows error state with retry button", () => {
+    const onRetry = vi.fn();
+    renderWithTheme(
+      <TweetList tweets={[]} isLoading={false} error="Failed to load tweets" onRetry={onRetry} />
+    );
+    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.getByText("Failed to load tweets")).toBeInTheDocument();
+    expect(screen.getByText("Try Again")).toBeInTheDocument();
+  });
+
+  it("error state takes priority over empty state", () => {
+    renderWithTheme(
+      <TweetList tweets={[]} isLoading={false} error="API error" />
+    );
+    expect(screen.getByText("Something went wrong")).toBeInTheDocument();
+    expect(screen.queryByText("No tweets found")).not.toBeInTheDocument();
+  });
 });
