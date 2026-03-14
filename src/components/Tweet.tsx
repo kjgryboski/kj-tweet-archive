@@ -157,7 +157,7 @@ export default function Tweet({
     return (
       <>
         {parts.map((part, i) =>
-          regex.test(part) ? <HighlightedText key={i}>{part}</HighlightedText> : part
+          i % 2 === 1 ? <HighlightedText key={i}>{part}</HighlightedText> : part
         )}
       </>
     );

@@ -3,13 +3,15 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import { updateTweetLikes } from "@/lib/db";
 import { SELECTORS } from "@/lib/scraper-selectors";
+import { sendAlert } from "@/lib/email";
 
 export const config = { maxDuration: 120 };
 
 const PROFILE_URL = "https://x.com/KJFUTURES";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -85,6 +87,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   } catch (error) {
     console.error("Refresh metrics error:", error);
+    await sendAlert(
+      "[KJ Tweets] Metrics refresh FAILED",
+      `Weekly like count refresh failed at ${new Date().toISOString()}.\n\nError: ${String(error)}`
+    );
     return res.status(500).json({ error: String(error) });
   }
 }

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
-import { initDb, insertTweet, tweetExists } from "@/lib/db";
+import { initDb, insertTweet } from "@/lib/db";
 import { generateTitle, type ScrapedTweet } from "@/lib/scraper-utils";
 import { SELECTORS } from "@/lib/scraper-selectors";
 import { sendAlert } from "@/lib/email";
@@ -191,6 +191,7 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
         };
       } catch (err) {
         lastError = err;
+        await page.close().catch(() => {});
         if (attempt < MAX_ATTEMPTS) {
           await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
         }
@@ -208,7 +209,8 @@ export default async function handler(
   res: NextApiResponse
 ) {
   // Verify cron secret (Vercel sends this automatically for cron jobs)
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.authorization !== `Bearer ${secret}`) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
@@ -216,12 +218,8 @@ export default async function handler(
     await initDb();
 
     const result = await scrapeTweetsWithRetry();
-    let newCount = 0;
 
     for (const tweet of result.tweets) {
-      const exists = await tweetExists(tweet.tweetId);
-      if (exists) continue;
-
       await insertTweet({
         x_tweet_id: tweet.tweetId,
         title: generateTitle(tweet.text),
@@ -232,7 +230,6 @@ export default async function handler(
         created_at: tweet.timestamp || new Date().toISOString(),
         likes: tweet.likes || 0,
       });
-      newCount++;
     }
 
     // Degradation alert if fallback selectors were used
@@ -254,7 +251,6 @@ export default async function handler(
     return res.status(200).json({
       success: true,
       scraped: result.tweets.length,
-      new: newCount,
       attempts: result.attempts,
       selectorsUsed: result.selectorsUsed,
       fallbacksTriggered: result.fallbacksTriggered,

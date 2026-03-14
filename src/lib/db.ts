@@ -108,22 +108,6 @@ export async function getTweetsPaginated(
   return { tweets, hasMore, nextCursor };
 }
 
-export async function getTweets(): Promise<TweetProps[]> {
-  const { rows } = await sql`
-    SELECT * FROM tweets ORDER BY created_at DESC
-  `;
-  return rows.map((row) => ({
-    id: row.x_tweet_id || String(row.id),
-    text: row.message,
-    title: row.title,
-    createdAt: row.created_at?.toISOString() || new Date().toISOString(),
-    username: row.username || "KJFUTURES",
-    name: row.name || "KJ",
-    xLink: row.x_link,
-    likes: row.likes || 0,
-  }));
-}
-
 export async function insertTweet(tweet: {
   x_tweet_id?: string;
   title: string;

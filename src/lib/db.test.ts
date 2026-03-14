@@ -6,7 +6,7 @@ vi.mock("@vercel/postgres", () => ({
   sql: mockSql,
 }));
 
-import { initDb, getTweets, insertTweet, tweetExists, getTweetsPaginated, updateTweetLikes } from "./db";
+import { initDb, insertTweet, tweetExists, getTweetsPaginated, updateTweetLikes } from "./db";
 
 beforeEach(() => {
   mockSql.mockReset();
@@ -17,91 +17,6 @@ describe("initDb", () => {
     mockSql.mockResolvedValue({});
     await initDb();
     expect(mockSql).toHaveBeenCalled();
-  });
-});
-
-describe("getTweets", () => {
-  it("returns mapped TweetProps from rows", async () => {
-    const mockDate = new Date("2026-01-15T12:00:00Z");
-    mockSql.mockResolvedValue({
-      rows: [
-        {
-          id: 1,
-          x_tweet_id: "123456",
-          message: "Hello world",
-          title: "Hello",
-          created_at: mockDate,
-          username: "KJFUTURES",
-          name: "KJ",
-          x_link: "https://x.com/KJFUTURES/status/123456",
-          likes: 5,
-        },
-      ],
-    });
-
-    const tweets = await getTweets();
-    expect(tweets).toEqual([
-      {
-        id: "123456",
-        text: "Hello world",
-        title: "Hello",
-        createdAt: mockDate.toISOString(),
-        username: "KJFUTURES",
-        name: "KJ",
-        xLink: "https://x.com/KJFUTURES/status/123456",
-        likes: 5,
-      },
-    ]);
-  });
-
-  it("falls back to row.id when x_tweet_id is missing", async () => {
-    mockSql.mockResolvedValue({
-      rows: [
-        {
-          id: 42,
-          x_tweet_id: null,
-          message: "Test",
-          title: null,
-          created_at: null,
-          username: null,
-          name: null,
-          x_link: null,
-        },
-      ],
-    });
-
-    const tweets = await getTweets();
-    expect(tweets[0].id).toBe("42");
-  });
-
-  it("applies defaults for missing fields", async () => {
-    mockSql.mockResolvedValue({
-      rows: [
-        {
-          id: 1,
-          x_tweet_id: "789",
-          message: "Test",
-          title: null,
-          created_at: null,
-          username: null,
-          name: null,
-          x_link: null,
-        },
-      ],
-    });
-
-    const tweets = await getTweets();
-    expect(tweets[0].username).toBe("KJFUTURES");
-    expect(tweets[0].name).toBe("KJ");
-    expect(tweets[0].createdAt).toBeDefined();
-  });
-
-  it("includes likes in row mapping", async () => {
-    mockSql.mockResolvedValue({
-      rows: [{ id: 1, x_tweet_id: "999", message: "Test", title: null, created_at: new Date(), username: "KJ", name: "KJ", x_link: null, likes: 15 }],
-    });
-    const tweets = await getTweets();
-    expect(tweets[0].likes).toBe(15);
   });
 });
 

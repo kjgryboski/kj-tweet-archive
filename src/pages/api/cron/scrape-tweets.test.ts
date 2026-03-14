@@ -169,11 +169,11 @@ describe("GET /api/cron/scrape-tweets", () => {
     expect(mockInitDb).toHaveBeenCalledTimes(1);
   });
 
-  it("skips existing tweets (tweetExists returns true → no insert)", async () => {
+  it("upserts all scraped tweets via insertTweet", async () => {
     process.env.CRON_SECRET = "my-secret";
 
     const scrapedTweets = [
-      { tweetId: "111", text: "First tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/111" },
+      { tweetId: "111", text: "First tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/111", likes: 5 },
     ];
 
     mockEvaluate
@@ -183,16 +183,17 @@ describe("GET /api/cron/scrape-tweets", () => {
         selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
       });
 
-    mockTweetExists.mockResolvedValue(true);
-
     const { req, res } = createMockReqRes("Bearer my-secret");
     await runHandler(req, res);
 
-    expect(mockTweetExists).toHaveBeenCalledWith("111");
-    expect(mockInsertTweet).not.toHaveBeenCalled();
+    expect(mockInsertTweet).toHaveBeenCalledTimes(1);
+    expect(mockInsertTweet).toHaveBeenCalledWith(expect.objectContaining({
+      x_tweet_id: "111",
+      likes: 5,
+    }));
   });
 
-  it("inserts new tweets with correct data (tweetExists returns false → insertTweet called)", async () => {
+  it("inserts tweets with correct data via upsert", async () => {
     process.env.CRON_SECRET = "my-secret";
 
     const scrapedTweets = [
@@ -223,12 +224,12 @@ describe("GET /api/cron/scrape-tweets", () => {
     });
   });
 
-  it("returns correct scraped/new counts (2 scraped, 1 existing, 1 new → {scraped: 2, new: 1})", async () => {
+  it("returns correct scraped count", async () => {
     process.env.CRON_SECRET = "my-secret";
 
     const scrapedTweets = [
-      { tweetId: "333", text: "Tweet A", timestamp: "2026-03-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/333" },
-      { tweetId: "444", text: "Tweet B", timestamp: "2026-03-02T00:00:00Z", url: "https://x.com/KJFUTURES/status/444" },
+      { tweetId: "333", text: "Tweet A", timestamp: "2026-03-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/333", likes: 0 },
+      { tweetId: "444", text: "Tweet B", timestamp: "2026-03-02T00:00:00Z", url: "https://x.com/KJFUTURES/status/444", likes: 0 },
     ];
 
     mockEvaluate
@@ -238,15 +239,12 @@ describe("GET /api/cron/scrape-tweets", () => {
         selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
       });
 
-    mockTweetExists
-      .mockResolvedValueOnce(true)   // tweet 333 exists
-      .mockResolvedValueOnce(false); // tweet 444 is new
-
     const { req, res } = createMockReqRes("Bearer my-secret");
     await runHandler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, scraped: 2, new: 1 }));
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, scraped: 2 }));
+    expect(mockInsertTweet).toHaveBeenCalledTimes(2);
   });
 
   it("returns 500 when scraper throws", async () => {
@@ -268,6 +266,7 @@ describe("GET /api/cron/scrape-tweets", () => {
       setUserAgent: vi.fn().mockResolvedValue(undefined),
       goto: vi.fn().mockResolvedValue(undefined),
       waitForSelector: vi.fn().mockRejectedValue(new Error("Timeout")),
+      close: vi.fn().mockResolvedValue(undefined),
     };
     const mockPage2 = {
       setUserAgent: vi.fn().mockResolvedValue(undefined),
@@ -309,7 +308,11 @@ describe("GET /api/cron/scrape-tweets", () => {
     mockEvaluate
       .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce({
-        tweets: [{ tweetId: "888", text: "Fallback tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/888" }],
+        tweets: [
+          { tweetId: "888", text: "Fallback tweet 1", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/888", likes: 0 },
+          { tweetId: "889", text: "Fallback tweet 2", timestamp: "2026-01-02T00:00:00Z", url: "https://x.com/KJFUTURES/status/889", likes: 0 },
+          { tweetId: "890", text: "Fallback tweet 3", timestamp: "2026-01-03T00:00:00Z", url: "https://x.com/KJFUTURES/status/890", likes: 0 },
+        ],
         selectorsUsed: { tweetContainer: 'article[role="article"]', tweetText: '[data-testid="tweetText"]' },
       });
     mockTweetExists.mockResolvedValue(false);
