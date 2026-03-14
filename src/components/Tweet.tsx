@@ -222,7 +222,9 @@ export default function Tweet({
             </Box>
           </Box>
 
-          <Title variant="h6">{title ? highlightSearchTerm(title, searchTerm) : "Tweet"}</Title>
+          {title && title !== text.trim() && !text.trim().startsWith(title) && (
+            <Title variant="h6">{highlightSearchTerm(title, searchTerm)}</Title>
+          )}
           <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
 
           <Box sx={{ display: "flex", alignItems: "center", mt: "auto", pt: 1 }}>
