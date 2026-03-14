@@ -19,18 +19,22 @@ X Profile (@KJFUTURES) → Scraper (every 6h) → Vercel Postgres → kjtweets.c
 
 ## Features
 
-- **Server-side search** — full-text ILIKE search across all archived tweets via `/api/tweets?q=`
+- **Server-side search** — debounced ILIKE search (300ms) across all archived tweets, result count display, search highlighting
 - **Infinite scroll** — cursor-based pagination, 30 tweets per batch, ref-guarded dedup
-- **Sort** — Newest, Oldest, or by Likes
-- **Individual tweet pages** — `/tweet/[id]` for shareable links with SSR and OG meta, "Read more" links on truncated cards
+- **Sort** — Newest, Oldest, or by Likes — URL-persisted (`?sort=likes` survives refresh/sharing)
+- **Individual tweet pages** — `/tweet/[id]` with SSR, OG meta, share button (copy to clipboard), and full untruncated text
+- **Dynamic "Read more"** — overflow detection via `scrollHeight > clientHeight`, only shows when content is actually truncated
+- **Skeleton loading** — shimmer skeleton cards matching card layout for perceived performance
+- **Animated transitions** — Framer Motion AnimatePresence with staggered fade on sort changes
+- **Card hover effects** — subtle lift and shadow on hover
+- **Fade gradient** — truncated tweet text fades out with a gradient matching the background color
 - **Like counts** — scraped from X, displayed on tweet cards, refreshed weekly
 - **Dark/light mode** — toggle with system preference detection and localStorage persistence
-- **Rate limiting** — in-memory token bucket (60 req/min/IP) on the tweets API
+- **Rate limiting** — in-memory sliding-window rate limiter (60 req/min/IP) on the tweets API
 - **Error boundary** — graceful crash recovery with plain HTML fallback
 - **Error states** — API failure shows "Something went wrong" with retry button
 - **Scraper resilience** — fallback CSS selector chains, scroll pagination (up to 10 scrolls), retry logic (2 attempts), email alerts via Resend on failure/degradation
 - **CDN caching** — 6-hour Cache-Control on first page, Vercel Edge serves cached responses
-- **Scroll animations** — Framer Motion fade-in on scroll
 - **Keyboard shortcuts** — Ctrl+K or `/` to focus search
 - **Back to top** — floating button after 500px scroll
 - **OG social card** — branded 1200x630 image for link previews
