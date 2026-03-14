@@ -28,27 +28,47 @@ export interface PaginatedTweets {
 
 export async function getTweetsPaginated(
   cursor?: string,
-  limit: number = 30
+  limit: number = 30,
+  sort: "newest" | "oldest" = "newest"
 ): Promise<PaginatedTweets> {
   const safeLimit = Math.min(Math.max(1, limit || 30), 100);
   const fetchLimit = safeLimit + 1;
 
   let rows;
-  if (cursor) {
-    ({ rows } = await sql`
-      SELECT * FROM tweets
-      WHERE (created_at, id) < (
-        SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
-      )
-      ORDER BY created_at DESC, id DESC
-      LIMIT ${fetchLimit}
-    `);
+  if (sort === "oldest") {
+    if (cursor) {
+      ({ rows } = await sql`
+        SELECT * FROM tweets
+        WHERE (created_at, id) > (
+          SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
+        )
+        ORDER BY created_at ASC, id ASC
+        LIMIT ${fetchLimit}
+      `);
+    } else {
+      ({ rows } = await sql`
+        SELECT * FROM tweets
+        ORDER BY created_at ASC, id ASC
+        LIMIT ${fetchLimit}
+      `);
+    }
   } else {
-    ({ rows } = await sql`
-      SELECT * FROM tweets
-      ORDER BY created_at DESC, id DESC
-      LIMIT ${fetchLimit}
-    `);
+    if (cursor) {
+      ({ rows } = await sql`
+        SELECT * FROM tweets
+        WHERE (created_at, id) < (
+          SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
+        )
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${fetchLimit}
+      `);
+    } else {
+      ({ rows } = await sql`
+        SELECT * FROM tweets
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${fetchLimit}
+      `);
+    }
   }
 
   const hasMore = rows.length > safeLimit;

@@ -174,4 +174,10 @@ describe("getTweetsPaginated", () => {
     await getTweetsPaginated("cursor123", 5);
     expect(mockSql).toHaveBeenCalled();
   });
+
+  it("respects sort=oldest parameter", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    await getTweetsPaginated(undefined, 5, "oldest");
+    expect(mockSql).toHaveBeenCalled();
+  });
 });
