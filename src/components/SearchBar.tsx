@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { TextField, InputAdornment, IconButton, Box, Typography } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ClearIcon from "@mui/icons-material/Clear";
-import { styled, Theme } from "@mui/material/styles";
+import { styled } from "@mui/material/styles";
 
 interface SearchBarProps {
   onServerSearch: (term: string) => void;

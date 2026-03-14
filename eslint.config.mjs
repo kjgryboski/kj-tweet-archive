@@ -11,10 +11,17 @@ export default tseslint.config(
   },
   {
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn", // Downgrade from error to warning
-      "no-undef": "off", // This can conflict with TypeScript's own checking
+      "@typescript-eslint/no-explicit-any": "warn",
+      "no-undef": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/ban-ts-comment": "off",
+    },
+  },
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+      "@typescript-eslint/no-unused-vars": "off",
     },
   }
 );
