@@ -97,6 +97,13 @@ export default function Home() {
           content="View KJ tweets in a minimal, distraction-free interface"
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta property="og:title" content="KJ Tweets — The Archive" />
+        <meta property="og:description" content="View KJ tweets in a minimal, distraction-free interface" />
+        <meta property="og:image" content="https://kjtweets.com/kj.jpg" />
+        <meta property="og:url" content="https://kjtweets.com" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:site" content="@KJFUTURES" />
         <link rel="icon" href="/kj.jpg" type="image/jpeg" />
         <link
           href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap"
@@ -158,6 +165,31 @@ export default function Home() {
 
         <TweetList tweets={tweets} isLoading={isLoading} searchTerm={searchTerm} loadingMore={loadingMore} />
         {hasMore && !isLoading && <div ref={sentinelRef} style={{ height: 1 }} />}
+        <Box
+          component="footer"
+          sx={{
+            textAlign: "center",
+            py: 4,
+            mt: 4,
+            borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            fontFamily='"Roboto Mono", "Courier New", monospace'
+          >
+            Built by{" "}
+            <a
+              href="https://x.com/KJFUTURES"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "inherit" }}
+            >
+              @KJFUTURES
+            </a>
+          </Typography>
+        </Box>
         <BackToTop />
         <ThemeToggle toggleColorMode={toggleColorMode} mode={colorMode} />
       </Box>
