@@ -27,8 +27,13 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [sort, setSort] = useState<"newest" | "oldest" | "likes">("newest");
+  const [error, setError] = useState<string | null>(null);
+  const loadingRef = useRef(false);
 
   const loadTweets = useCallback(async (cursor?: string) => {
+    if (cursor && loadingRef.current) return;
+    loadingRef.current = true;
+
     if (cursor) {
       setLoadingMore(true);
     } else {
@@ -40,8 +45,10 @@ export default function Home() {
       if (cursor) params.set("cursor", cursor);
 
       const res = await fetch(`/api/tweets?${params}`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
 
+      setError(null);
       if (cursor) {
         setTweets((prev) => [...prev, ...data.tweets]);
       } else {
@@ -49,12 +56,14 @@ export default function Home() {
       }
       setHasMore(data.hasMore);
       setNextCursor(data.nextCursor);
-    } catch (error) {
-      console.error("Error loading tweets:", error);
+    } catch (err) {
+      console.error("Error loading tweets:", err);
+      setError("Failed to load tweets. Please try again.");
       if (!cursor) setTweets([]);
     } finally {
       setIsLoading(false);
       setLoadingMore(false);
+      loadingRef.current = false;
     }
   }, [sort]);
 
@@ -110,7 +119,7 @@ export default function Home() {
 
   return (
     <>
-      <GoogleAnalytics gaId="G-TQ17DS73DL" />
+      {process.env.NEXT_PUBLIC_GA_ID && <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID} />}
       <Head>
         <title>KJ Tweets</title>
         <meta
@@ -125,11 +134,6 @@ export default function Home() {
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
         <meta name="twitter:site" content="@KJFUTURES" />
-        <link rel="icon" href="/kj.jpg" type="image/jpeg" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
       </Head>
 
       <Box component="main" sx={{ minHeight: "100vh" }}>
@@ -211,7 +215,14 @@ export default function Home() {
           )}
         </Container>
 
-        <TweetList tweets={searchResults ?? tweets} isLoading={isLoading} searchTerm={searchTerm} loadingMore={loadingMore} />
+        <TweetList
+          tweets={searchResults ?? tweets}
+          isLoading={isLoading}
+          searchTerm={searchTerm}
+          loadingMore={loadingMore}
+          error={error}
+          onRetry={() => { setError(null); loadTweets(); }}
+        />
         {hasMore && !isLoading && !searchResults && <div ref={sentinelRef} style={{ height: 1 }} />}
         <Box
           component="footer"

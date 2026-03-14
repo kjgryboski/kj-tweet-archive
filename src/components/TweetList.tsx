@@ -8,6 +8,8 @@ interface TweetListProps {
   isLoading: boolean;
   searchTerm?: string;
   loadingMore?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 const AnimatedText = styled(motion.div)({
@@ -25,7 +27,44 @@ const MonoTypography = styled(Typography)({
   fontFamily: '"Roboto Mono", "Courier New", monospace',
 });
 
-export default function TweetList({ tweets, isLoading, searchTerm = "", loadingMore = false }: TweetListProps) {
+export default function TweetList({ tweets, isLoading, searchTerm = "", loadingMore = false, error, onRetry }: TweetListProps) {
+  if (error) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "50vh",
+          gap: 2,
+        }}
+      >
+        <MonoTypography variant="h6">Something went wrong</MonoTypography>
+        <MonoTypography variant="body2" color="text.secondary">{error}</MonoTypography>
+        {onRetry && (
+          <Box
+            component="button"
+            onClick={onRetry}
+            sx={{
+              fontFamily: '"Roboto Mono", monospace',
+              padding: "8px 24px",
+              border: "1px solid",
+              borderColor: "divider",
+              borderRadius: 1,
+              background: "transparent",
+              color: "text.primary",
+              cursor: "pointer",
+              "&:hover": { opacity: 0.7 },
+            }}
+          >
+            Try Again
+          </Box>
+        )}
+      </Box>
+    );
+  }
+
   if (isLoading) {
     return (
       <Box
