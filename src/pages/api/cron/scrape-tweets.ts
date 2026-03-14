@@ -2,19 +2,13 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 import { initDb, insertTweet, tweetExists } from "@/lib/db";
+import { generateTitle, type ScrapedTweet } from "@/lib/scraper-utils";
 
 export const config = {
   maxDuration: 120, // 2 minutes max for Pro plan
 };
 
 const PROFILE_URL = "https://x.com/KJFUTURES";
-
-interface ScrapedTweet {
-  tweetId: string;
-  text: string;
-  timestamp: string;
-  url: string;
-}
 
 async function scrapeTweets(): Promise<ScrapedTweet[]> {
   const browser = await puppeteer.launch({
@@ -89,12 +83,6 @@ async function scrapeTweets(): Promise<ScrapedTweet[]> {
   } finally {
     await browser.close();
   }
-}
-
-function generateTitle(text: string): string {
-  const firstSentence = text.split(/[.!?\n]/)[0]?.trim();
-  if (firstSentence && firstSentence.length <= 80) return firstSentence;
-  return text.substring(0, 60).trim() + "...";
 }
 
 export default async function handler(
