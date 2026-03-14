@@ -2,16 +2,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 vi.mock("@/lib/db", () => ({
-  getTweets: vi.fn(),
+  getTweetsPaginated: vi.fn(),
 }));
 
 import handler from "./tweets";
-import { getTweets } from "@/lib/db";
+import { getTweetsPaginated } from "@/lib/db";
 
-const mockGetTweets = vi.mocked(getTweets);
+const mockGetTweetsPaginated = vi.mocked(getTweetsPaginated);
 
-function createMockReqRes(method = "GET") {
-  const req = { method } as NextApiRequest;
+function createMockReqRes(method = "GET", query: Record<string, string> = {}) {
+  const req = { method, query } as unknown as NextApiRequest;
   const res = {
     status: vi.fn().mockReturnThis(),
     json: vi.fn().mockReturnThis(),
@@ -21,23 +21,27 @@ function createMockReqRes(method = "GET") {
 }
 
 beforeEach(() => {
-  mockGetTweets.mockReset();
+  mockGetTweetsPaginated.mockReset();
 });
 
 describe("GET /api/tweets", () => {
-  it("returns 200 with tweets", async () => {
-    const tweets = [{ id: "1", text: "Hello", createdAt: "2026-01-01", username: "KJ", name: "KJ" }];
-    mockGetTweets.mockResolvedValue(tweets as any);
+  it("returns 200 with paginated response", async () => {
+    const result = {
+      tweets: [{ id: "1", text: "Hello", createdAt: "2026-01-01", username: "KJ", name: "KJ" }],
+      hasMore: false,
+      nextCursor: null,
+    };
+    mockGetTweetsPaginated.mockResolvedValue(result as any);
 
     const { req, res } = createMockReqRes("GET");
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(tweets);
+    expect(res.json).toHaveBeenCalledWith(result);
   });
 
-  it("sets Cache-Control header on success", async () => {
-    mockGetTweets.mockResolvedValue([]);
+  it("sets Cache-Control header on first page (no cursor)", async () => {
+    mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
 
     const { req, res } = createMockReqRes("GET");
     await handler(req, res);
@@ -48,6 +52,24 @@ describe("GET /api/tweets", () => {
     );
   });
 
+  it("does not set Cache-Control header on cursor pages", async () => {
+    mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
+
+    const { req, res } = createMockReqRes("GET", { cursor: "abc" });
+    await handler(req, res);
+
+    expect(res.setHeader).not.toHaveBeenCalled();
+  });
+
+  it("passes cursor and limit query params to getTweetsPaginated", async () => {
+    mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
+
+    const { req, res } = createMockReqRes("GET", { cursor: "abc123", limit: "15" });
+    await handler(req, res);
+
+    expect(mockGetTweetsPaginated).toHaveBeenCalledWith("abc123", 15);
+  });
+
   it("returns 405 for non-GET methods", async () => {
     const { req, res } = createMockReqRes("POST");
     await handler(req, res);
@@ -56,7 +78,7 @@ describe("GET /api/tweets", () => {
   });
 
   it("returns 500 on database error", async () => {
-    mockGetTweets.mockRejectedValue(new Error("DB error"));
+    mockGetTweetsPaginated.mockRejectedValue(new Error("DB error"));
 
     const { req, res } = createMockReqRes("GET");
     await handler(req, res);
