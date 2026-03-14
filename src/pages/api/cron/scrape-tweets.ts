@@ -38,6 +38,7 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
     tweetText: [...SELECTORS.tweetText],
     socialContext: [...SELECTORS.socialContext],
     timeElement: [...SELECTORS.timeElement],
+    likeButton: [...SELECTORS.likeButton],
   };
 
   let lastError: unknown;
@@ -72,6 +73,7 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
             tweetText: string[];
             socialContext: string[];
             timeElement: string[];
+            likeButton: string[];
           }) => {
             // Inline resolveChild — cannot import modules in browser context
             function resolveChild(
@@ -102,6 +104,7 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
               text: string;
               timestamp: string;
               url: string;
+              likes: number;
             }[] = [];
 
             let usedTextSelector = "";
@@ -139,11 +142,21 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
               // Get timestamp
               const timestamp = timeEl?.getAttribute("datetime") || "";
 
+              // Get likes
+              const likeEl = resolveChild(el, cfg.likeButton);
+              let likes = 0;
+              if (likeEl) {
+                const ariaLabel = likeEl.getAttribute("aria-label") || "";
+                const likeMatch = ariaLabel.match(/(\d+)/);
+                if (likeMatch) likes = parseInt(likeMatch[1], 10);
+              }
+
               results.push({
                 tweetId: tweetIdMatch[1],
                 text,
                 timestamp,
                 url: `https://x.com${href}`,
+                likes,
               });
             });
 
@@ -217,6 +230,7 @@ export default async function handler(
         username: "KJFUTURES",
         name: "KJ",
         created_at: tweet.timestamp || new Date().toISOString(),
+        likes: tweet.likes || 0,
       });
       newCount++;
     }

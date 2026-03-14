@@ -86,6 +86,7 @@ vi.mock("@/lib/scraper-selectors", () => ({
     tweetText: ['[data-testid="tweetText"]', 'div[lang][dir="ltr"]'],
     socialContext: ['[data-testid="socialContext"]'],
     timeElement: ['time[datetime]'],
+    likeButton: ['[data-testid="like"]', '[aria-label*="Like"]'],
   },
 }));
 
@@ -218,6 +219,7 @@ describe("GET /api/cron/scrape-tweets", () => {
       username: "KJFUTURES",
       name: "KJ",
       created_at: "2026-02-01T00:00:00Z",
+      likes: 0,
     });
   });
 

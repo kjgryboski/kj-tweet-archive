@@ -12,7 +12,10 @@ export default async function handler(
   try {
     const cursor = req.query.cursor as string | undefined;
     const limit = parseInt(req.query.limit as string) || 30;
-    const sort = (req.query.sort as string) === "oldest" ? "oldest" : "newest";
+    const sortParam = req.query.sort as string;
+    const sort = (["newest", "oldest", "likes"] as const).includes(sortParam as any)
+      ? (sortParam as "newest" | "oldest" | "likes")
+      : "newest";
 
     const result = await getTweetsPaginated(cursor, limit, sort);
 

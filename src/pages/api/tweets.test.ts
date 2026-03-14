@@ -79,6 +79,13 @@ describe("GET /api/tweets", () => {
     expect(mockGetTweetsPaginated).toHaveBeenCalledWith(undefined, 30, "oldest");
   });
 
+  it("passes sort=likes to getTweetsPaginated", async () => {
+    mockGetTweetsPaginated.mockResolvedValue({ tweets: [], hasMore: false, nextCursor: null } as any);
+    const { req, res } = createMockReqRes("GET", { sort: "likes" });
+    await handler(req, res);
+    expect(mockGetTweetsPaginated).toHaveBeenCalledWith(undefined, 30, "likes");
+  });
+
   it("returns 405 for non-GET methods", async () => {
     const { req, res } = createMockReqRes("POST");
     await handler(req, res);
