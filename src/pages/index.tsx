@@ -261,6 +261,16 @@ export default function Home() {
               @KJFUTURES
             </a>
           </Typography>
+          {totalCount !== null && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              fontFamily='"Roboto Mono", "Courier New", monospace'
+              sx={{ display: "block", mt: 0.5 }}
+            >
+              {totalCount.toLocaleString()} tweets archived · updated every 6 hours
+            </Typography>
+          )}
         </Box>
         <BackToTop />
         <ThemeToggle toggleColorMode={toggleColorMode} mode={colorMode} />
