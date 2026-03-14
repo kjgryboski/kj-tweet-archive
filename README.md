@@ -22,7 +22,7 @@ X Profile (@KJFUTURES) → Scraper (every 6h) → Vercel Postgres → kjtweets.c
 - **Server-side search** — full-text ILIKE search across all archived tweets via `/api/tweets?q=`
 - **Infinite scroll** — cursor-based pagination, 30 tweets per batch, ref-guarded dedup
 - **Sort** — Newest, Oldest, or by Likes
-- **Individual tweet pages** — `/tweet/[id]` for shareable links with SSR and OG meta
+- **Individual tweet pages** — `/tweet/[id]` for shareable links with SSR and OG meta, "Read more" links on truncated cards
 - **Like counts** — scraped from X, displayed on tweet cards, refreshed weekly
 - **Dark/light mode** — toggle with system preference detection and localStorage persistence
 - **Rate limiting** — in-memory token bucket (60 req/min/IP) on the tweets API
