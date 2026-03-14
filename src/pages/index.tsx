@@ -20,6 +20,7 @@ export default function Home() {
   const [tweets, setTweets] = useState<TweetProps[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<TweetProps[] | null>(null);
   const { colorMode, toggleColorMode } = useThemeContext();
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -85,9 +86,27 @@ export default function Home() {
     return () => observer.disconnect();
   }, [hasMore, loadingMore, isLoading, nextCursor, loadTweets]);
 
-  const handleSearch = (term: string) => {
+  const handleServerSearch = useCallback(async (term: string) => {
     setSearchTerm(term);
-  };
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({ q: term, limit: "100" });
+      const res = await fetch(`/api/tweets?${params}`);
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const data = await res.json();
+      setSearchResults(data.tweets);
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchResults([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const handleClearSearch = useCallback(() => {
+    setSearchTerm("");
+    setSearchResults(null);
+  }, []);
 
   return (
     <>
@@ -138,7 +157,7 @@ export default function Home() {
             </Typography>
             <Typography
               variant="h5"
-              component="h1"
+              component="h2"
               fontWeight="bold"
               textAlign="center"
               sx={{ mb: 1 }}
@@ -162,7 +181,14 @@ export default function Home() {
             mb: 2,
           }}
         >
-          {!isLoading && tweets.length > 0 && <SearchBar tweets={tweets} onSearch={handleSearch} />}
+          {!isLoading && tweets.length > 0 && (
+            <SearchBar
+              onServerSearch={handleServerSearch}
+              onClear={handleClearSearch}
+              resultCount={searchResults?.length}
+              isSearching={isLoading && searchTerm !== ""}
+            />
+          )}
           {!isLoading && tweets.length > 0 && (
             <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>
               <ToggleButtonGroup
@@ -185,8 +211,8 @@ export default function Home() {
           )}
         </Container>
 
-        <TweetList tweets={tweets} isLoading={isLoading} searchTerm={searchTerm} loadingMore={loadingMore} />
-        {hasMore && !isLoading && <div ref={sentinelRef} style={{ height: 1 }} />}
+        <TweetList tweets={searchResults ?? tweets} isLoading={isLoading} searchTerm={searchTerm} loadingMore={loadingMore} />
+        {hasMore && !isLoading && !searchResults && <div ref={sentinelRef} style={{ height: 1 }} />}
         <Box
           component="footer"
           sx={{
