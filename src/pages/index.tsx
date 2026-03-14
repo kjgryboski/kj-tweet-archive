@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Head from "next/head";
 import { Box, Container, Typography } from "@mui/material";
 import { styled, Theme } from "@mui/material/styles";
@@ -21,24 +21,60 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const { colorMode, toggleColorMode } = useThemeContext();
+  const [hasMore, setHasMore] = useState(true);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const loadTweets = useCallback(async (cursor?: string) => {
+    if (cursor) {
+      setLoadingMore(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      const params = new URLSearchParams({ limit: "30" });
+      if (cursor) params.set("cursor", cursor);
+
+      const res = await fetch(`/api/tweets?${params}`);
+      const data = await res.json();
+
+      if (cursor) {
+        setTweets((prev) => [...prev, ...data.tweets]);
+      } else {
+        setTweets(data.tweets);
+      }
+      setHasMore(data.hasMore);
+      setNextCursor(data.nextCursor);
+    } catch (error) {
+      console.error("Error loading tweets:", error);
+      if (!cursor) setTweets([]);
+    } finally {
+      setIsLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   useEffect(() => {
     loadTweets();
-  }, []);
+  }, [loadTweets]);
 
-  const loadTweets = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/tweets");
-      const fetchedTweets = await res.json();
-      setTweets(fetchedTweets);
-    } catch (error) {
-      console.error("Error loading tweets:", error);
-      setTweets([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore || loadingMore || isLoading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && nextCursor) {
+          loadTweets(nextCursor);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, isLoading, nextCursor, loadTweets]);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -120,7 +156,8 @@ export default function Home() {
           {!isLoading && tweets.length > 0 && <SearchBar tweets={tweets} onSearch={handleSearch} />}
         </Container>
 
-        <TweetList tweets={tweets} isLoading={isLoading} searchTerm={searchTerm} />
+        <TweetList tweets={tweets} isLoading={isLoading} searchTerm={searchTerm} loadingMore={loadingMore} />
+        {hasMore && !isLoading && <div ref={sentinelRef} style={{ height: 1 }} />}
         <BackToTop />
         <ThemeToggle toggleColorMode={toggleColorMode} mode={colorMode} />
       </Box>
