@@ -14,6 +14,7 @@ export interface ScrapedTweet {
   text: string;
   timestamp: string;
   url: string;
+  likes: number;
 }
 
 export type SelectorConfig = Record<SelectorKey, readonly string[]>;
@@ -72,11 +73,21 @@ export function parseTweetElements(
     // Get timestamp
     const timestamp = timeEl?.getAttribute("datetime") || "";
 
+    // Get likes
+    const likeEl = resolveChild(el, selectors.likeButton);
+    let likes = 0;
+    if (likeEl) {
+      const ariaLabel = likeEl.getAttribute("aria-label") || "";
+      const match = ariaLabel.match(/(\d+)/);
+      if (match) likes = parseInt(match[1], 10);
+    }
+
     results.push({
       tweetId: tweetIdMatch[1],
       text: text.trim(),
       timestamp,
       url: `https://x.com${href}`,
+      likes,
     });
   });
 

@@ -3,6 +3,7 @@ export const SELECTORS = {
   tweetText: ['[data-testid="tweetText"]', 'div[lang][dir="ltr"]'],
   socialContext: ['[data-testid="socialContext"]'],
   timeElement: ['time[datetime]'],
+  likeButton: ['[data-testid="like"]', '[aria-label*="Like"]'],
 } as const;
 
 export type SelectorKey = keyof typeof SELECTORS;

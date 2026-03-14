@@ -36,6 +36,7 @@ function buildTweetArticle(container: HTMLElement, options: {
   isRetweet?: boolean;
   isReply?: boolean;
   isEmpty?: boolean;
+  likes?: number;
 }) {
   const {
     tweetId = "12345",
@@ -77,6 +78,13 @@ function buildTweetArticle(container: HTMLElement, options: {
   }
   article.appendChild(tweetTextEl);
 
+  if (options.likes !== undefined) {
+    const likeBtn = document.createElement("div");
+    likeBtn.setAttribute("data-testid", "like");
+    likeBtn.setAttribute("aria-label", `${options.likes} Likes`);
+    article.appendChild(likeBtn);
+  }
+
   container.appendChild(article);
 }
 
@@ -96,6 +104,7 @@ describe("parseTweetElements", () => {
       text: "Hello from KJ",
       timestamp: "2026-03-01T10:00:00.000Z",
       url: "https://x.com/KJFUTURES/status/99999",
+      likes: 0,
     });
   });
 
@@ -150,11 +159,20 @@ describe("parseTweetElements", () => {
       tweetText: ['div[lang][dir="ltr"]'],
       socialContext: ['[data-testid="socialContext"]'],
       timeElement: ['time[datetime]'],
+      likeButton: ['[data-testid="like"]'],
     };
 
     const results = parseTweetElements(container, customSelectors);
     expect(results).toHaveLength(1);
     expect(results[0].text).toBe("Custom selector tweet");
     expect(results[0].tweetId).toBe("55555");
+  });
+
+  it("extracts likes from DOM", () => {
+    const container = document.createElement("div");
+    buildTweetArticle(container, { tweetId: "77777", text: "Popular tweet", likes: 42 });
+    const results = parseTweetElements(container);
+    expect(results).toHaveLength(1);
+    expect(results[0].likes).toBe(42);
   });
 });
