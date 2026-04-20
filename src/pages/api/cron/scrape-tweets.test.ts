@@ -10,9 +10,13 @@ const {
   mockNewPage,
   mockLaunch,
   mockInsertTweet,
+  mockInsertMedia,
+  mockInsertQuotedSnapshot,
   mockGenerateTitle,
   mockExecutablePath,
   mockSendAlert,
+  mockFetchAndUploadPhoto,
+  mockHasExistingMedia,
 } = vi.hoisted(() => {
   const mockEvaluate = vi.fn();
   const mockGoto = vi.fn().mockResolvedValue(undefined);
@@ -32,9 +36,13 @@ const {
     close: mockBrowserClose,
   });
   const mockInsertTweet = vi.fn().mockResolvedValue(undefined);
+  const mockInsertMedia = vi.fn().mockResolvedValue(undefined);
+  const mockInsertQuotedSnapshot = vi.fn().mockResolvedValue(undefined);
   const mockGenerateTitle = vi.fn((text: string) => text.slice(0, 30));
   const mockExecutablePath = vi.fn().mockResolvedValue("/usr/bin/chromium");
   const mockSendAlert = vi.fn().mockResolvedValue(undefined);
+  const mockFetchAndUploadPhoto = vi.fn().mockResolvedValue(null);
+  const mockHasExistingMedia = vi.fn().mockResolvedValue(false);
 
   return {
     mockEvaluate,
@@ -45,9 +53,13 @@ const {
     mockNewPage,
     mockLaunch,
     mockInsertTweet,
+    mockInsertMedia,
+    mockInsertQuotedSnapshot,
     mockGenerateTitle,
     mockExecutablePath,
     mockSendAlert,
+    mockFetchAndUploadPhoto,
+    mockHasExistingMedia,
   };
 });
 
@@ -64,10 +76,17 @@ vi.mock("@sparticuz/chromium", () => ({
 
 vi.mock("@/lib/db", () => ({
   insertTweet: mockInsertTweet,
+  insertMedia: mockInsertMedia,
+  insertQuotedSnapshot: mockInsertQuotedSnapshot,
 }));
 
 vi.mock("@/lib/scraper-utils", () => ({
   generateTitle: mockGenerateTitle,
+}));
+
+vi.mock("@/lib/scraper-media", () => ({
+  fetchAndUploadPhoto: mockFetchAndUploadPhoto,
+  hasExistingMedia: mockHasExistingMedia,
 }));
 
 vi.mock("@/lib/email", () => ({
@@ -103,15 +122,23 @@ function createMockReqRes(authHeader?: string) {
 beforeEach(() => {
   vi.useFakeTimers();
   mockInsertTweet.mockReset();
+  mockInsertMedia.mockReset();
+  mockInsertQuotedSnapshot.mockReset();
   mockEvaluate.mockReset();
   mockLaunch.mockClear();
   mockBrowserClose.mockClear();
   mockNewPage.mockClear();
   mockSendAlert.mockReset();
+  mockFetchAndUploadPhoto.mockReset();
+  mockHasExistingMedia.mockReset();
 
   // Restore defaults after reset
   mockInsertTweet.mockResolvedValue(undefined);
+  mockInsertMedia.mockResolvedValue(undefined);
+  mockInsertQuotedSnapshot.mockResolvedValue(undefined);
   mockSendAlert.mockResolvedValue(undefined);
+  mockFetchAndUploadPhoto.mockResolvedValue(null);
+  mockHasExistingMedia.mockResolvedValue(false);
   mockLaunch.mockResolvedValue({
     newPage: mockNewPage,
     close: mockBrowserClose,
@@ -153,7 +180,7 @@ describe("GET /api/cron/scrape-tweets", () => {
       .mockResolvedValueOnce(undefined) // scroll
       .mockResolvedValueOnce(0)         // count (breaks loop since 0 === previousCount)
       .mockResolvedValueOnce({
-        tweets: [{ tweetId: "100", text: "Test", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/100" }],
+        tweets: [{ tweetId: "100", text: "Test", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/100", likes: 0, photos: [] }],
         selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
       });
     const { req, res } = createMockReqRes("Bearer my-secret");
@@ -166,7 +193,7 @@ describe("GET /api/cron/scrape-tweets", () => {
     process.env.CRON_SECRET = "my-secret";
 
     const scrapedTweets = [
-      { tweetId: "111", text: "First tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/111", likes: 5 },
+      { tweetId: "111", text: "First tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/111", likes: 5, photos: [] },
     ];
 
     mockEvaluate
@@ -191,7 +218,7 @@ describe("GET /api/cron/scrape-tweets", () => {
     process.env.CRON_SECRET = "my-secret";
 
     const scrapedTweets = [
-      { tweetId: "222", text: "New tweet content", timestamp: "2026-02-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/222" },
+      { tweetId: "222", text: "New tweet content", timestamp: "2026-02-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/222", likes: 0, photos: [] },
     ];
 
     mockEvaluate
@@ -214,6 +241,7 @@ describe("GET /api/cron/scrape-tweets", () => {
       name: "KJ",
       created_at: "2026-02-01T00:00:00Z",
       likes: 0,
+      quoted_tweet_id: null,
     });
   });
 
@@ -221,8 +249,8 @@ describe("GET /api/cron/scrape-tweets", () => {
     process.env.CRON_SECRET = "my-secret";
 
     const scrapedTweets = [
-      { tweetId: "333", text: "Tweet A", timestamp: "2026-03-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/333", likes: 0 },
-      { tweetId: "444", text: "Tweet B", timestamp: "2026-03-02T00:00:00Z", url: "https://x.com/KJFUTURES/status/444", likes: 0 },
+      { tweetId: "333", text: "Tweet A", timestamp: "2026-03-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/333", likes: 0, photos: [] },
+      { tweetId: "444", text: "Tweet B", timestamp: "2026-03-02T00:00:00Z", url: "https://x.com/KJFUTURES/status/444", likes: 0, photos: [] },
     ];
 
     mockEvaluate
@@ -270,7 +298,7 @@ describe("GET /api/cron/scrape-tweets", () => {
         .mockResolvedValueOnce(undefined) // scroll
         .mockResolvedValueOnce(0)         // count
         .mockResolvedValueOnce({
-          tweets: [{ tweetId: "777", text: "Retry tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/777" }],
+          tweets: [{ tweetId: "777", text: "Retry tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/777", likes: 0, photos: [] }],
           selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
         }),
       close: vi.fn().mockResolvedValue(undefined),
@@ -304,9 +332,9 @@ describe("GET /api/cron/scrape-tweets", () => {
       .mockResolvedValueOnce(0)         // count
       .mockResolvedValueOnce({
         tweets: [
-          { tweetId: "888", text: "Fallback tweet 1", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/888", likes: 0 },
-          { tweetId: "889", text: "Fallback tweet 2", timestamp: "2026-01-02T00:00:00Z", url: "https://x.com/KJFUTURES/status/889", likes: 0 },
-          { tweetId: "890", text: "Fallback tweet 3", timestamp: "2026-01-03T00:00:00Z", url: "https://x.com/KJFUTURES/status/890", likes: 0 },
+          { tweetId: "888", text: "Fallback tweet 1", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/888", likes: 0, photos: [] },
+          { tweetId: "889", text: "Fallback tweet 2", timestamp: "2026-01-02T00:00:00Z", url: "https://x.com/KJFUTURES/status/889", likes: 0, photos: [] },
+          { tweetId: "890", text: "Fallback tweet 3", timestamp: "2026-01-03T00:00:00Z", url: "https://x.com/KJFUTURES/status/890", likes: 0, photos: [] },
         ],
         selectorsUsed: { tweetContainer: 'article[role="article"]', tweetText: '[data-testid="tweetText"]' },
       });
@@ -325,7 +353,7 @@ describe("GET /api/cron/scrape-tweets", () => {
       .mockResolvedValueOnce(undefined) // scroll
       .mockResolvedValueOnce(0)         // count
       .mockResolvedValueOnce({
-        tweets: [{ tweetId: "999", text: "Meta tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/999" }],
+        tweets: [{ tweetId: "999", text: "Meta tweet", timestamp: "2026-01-01T00:00:00Z", url: "https://x.com/KJFUTURES/status/999", likes: 0, photos: [] }],
         selectorsUsed: { tweetContainer: '[data-testid="tweet"]', tweetText: '[data-testid="tweetText"]' },
       });
     const { req, res } = createMockReqRes("Bearer my-secret");

@@ -1,10 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
-import { insertTweet } from "@/lib/db";
+import { insertTweet, insertMedia, insertQuotedSnapshot } from "@/lib/db";
 import { generateTitle, type ScrapedTweet } from "@/lib/scraper-utils";
 import { SELECTORS } from "@/lib/scraper-selectors";
 import { sendAlert } from "@/lib/email";
+import { fetchAndUploadPhoto, hasExistingMedia } from "@/lib/scraper-media";
+
+const OWN_USERNAME = "KJFUTURES";
 
 export const config = {
   maxDuration: 120, // 2 minutes max for Pro plan
@@ -88,8 +91,8 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
             socialContext: string[];
             timeElement: string[];
             likeButton: string[];
+            ownUsername: string;
           }) => {
-            // Inline resolveChild — cannot import modules in browser context
             function resolveChild(
               parent: Element,
               sels: string[]
@@ -101,7 +104,77 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
               return null;
             }
 
-            // Find tweet elements using the first matching container selector
+            function outerOnlyText(el: Element): string {
+              const clone = el.cloneNode(true) as Element;
+              clone.querySelectorAll("article").forEach((a) => a.remove());
+              return clone.textContent || "";
+            }
+
+            function mediaKeyFromUrl(url: string): string | null {
+              try {
+                const u = new URL(url);
+                const segs = u.pathname.split("/").filter(Boolean);
+                const last = segs[segs.length - 1];
+                if (!last) return null;
+                return last.replace(/\.[a-z0-9]+$/i, "") || null;
+              } catch {
+                return null;
+              }
+            }
+
+            function upgradeToLarge(url: string): string {
+              try {
+                const u = new URL(url);
+                if (!u.hostname.endsWith("twimg.com")) return url;
+                u.searchParams.set("name", "large");
+                return u.toString();
+              } catch {
+                return url;
+              }
+            }
+
+            function extractPhotos(
+              el: Element
+            ): { mediaKey: string; url: string }[] {
+              const clone = el.cloneNode(true) as Element;
+              clone.querySelectorAll("article").forEach((a) => a.remove());
+              const photos = new Map<string, { mediaKey: string; url: string }>();
+              const imgs = Array.from(
+                clone.querySelectorAll('img[src*="pbs.twimg.com/media/"]')
+              );
+              for (const img of imgs) {
+                const src = img.getAttribute("src");
+                if (!src) continue;
+                const key = mediaKeyFromUrl(src);
+                if (!key) continue;
+                if (!photos.has(key)) {
+                  photos.set(key, { mediaKey: key, url: upgradeToLarge(src) });
+                }
+              }
+              return Array.from(photos.values());
+            }
+
+            const STATUS_HREF_RE = /^\/([^/]+)\/status\/(\d+)/;
+            function detectQuote(
+              el: Element,
+              ownUsername: string
+            ): { url: string; username: string; id: string } | null {
+              const nested = el.querySelector("article");
+              if (!nested) return null;
+              const anchors = Array.from(
+                nested.querySelectorAll('a[href*="/status/"]')
+              );
+              for (const a of anchors) {
+                const href = a.getAttribute("href") || "";
+                const m = href.match(STATUS_HREF_RE);
+                if (!m) continue;
+                const [, username, id] = m;
+                if (username.toLowerCase() === ownUsername.toLowerCase()) continue;
+                return { url: `https://x.com${href}`, username, id };
+              }
+              return null;
+            }
+
             let tweetElements: Element[] = [];
             let usedContainerSelector = "";
             for (const sel of cfg.tweetContainer) {
@@ -119,27 +192,26 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
               timestamp: string;
               url: string;
               likes: number;
+              photos: { mediaKey: string; url: string }[];
+              quotedTweetUrl?: string;
+              quotedTweetUsername?: string;
+              quotedTweetId?: string;
             }[] = [];
 
             let usedTextSelector = "";
 
             tweetElements.forEach((el) => {
-              // Skip retweets
               const socialContext = resolveChild(el, cfg.socialContext);
               if (socialContext?.textContent?.includes("reposted")) return;
 
-              // Get tweet link to extract ID
               const timeEl = resolveChild(el, cfg.timeElement);
               const linkEl = timeEl?.closest("a");
               const href = linkEl?.getAttribute("href") || "";
               const tweetIdMatch = href.match(/status\/(\d+)/);
               if (!tweetIdMatch) return;
 
-              // Skip replies
-              const allText = el.textContent || "";
-              if (allText.includes("Replying to @")) return;
+              if (outerOnlyText(el).includes("Replying to @")) return;
 
-              // Get tweet text using first matching text selector
               let text = "";
               let matchedTextSel = "";
               for (const sel of cfg.tweetText) {
@@ -153,10 +225,8 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
               if (!text) return;
               if (!usedTextSelector) usedTextSelector = matchedTextSel;
 
-              // Get timestamp
               const timestamp = timeEl?.getAttribute("datetime") || "";
 
-              // Get likes
               const likeEl = resolveChild(el, cfg.likeButton);
               let likes = 0;
               if (likeEl) {
@@ -165,12 +235,19 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
                 if (likeMatch) likes = parseInt(likeMatch[1], 10);
               }
 
+              const photos = extractPhotos(el);
+              const quote = detectQuote(el, cfg.ownUsername);
+
               results.push({
                 tweetId: tweetIdMatch[1],
                 text,
                 timestamp,
                 url: `https://x.com${href}`,
                 likes,
+                photos,
+                quotedTweetUrl: quote?.url,
+                quotedTweetUsername: quote?.username,
+                quotedTweetId: quote?.id,
               });
             });
 
@@ -182,7 +259,7 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
               },
             };
           },
-          selectorConfig
+          { ...selectorConfig, ownUsername: OWN_USERNAME }
         );
 
         if (evalResult.tweets.length === 0) {
@@ -234,17 +311,60 @@ export default async function handler(
   try {
     const result = await scrapeTweetsWithRetry();
 
+    let mediaUploaded = 0;
+    let mediaSkipped = 0;
+    let quotesPersisted = 0;
     for (const tweet of result.tweets) {
       await insertTweet({
         x_tweet_id: tweet.tweetId,
         title: generateTitle(tweet.text),
         message: tweet.text,
         x_link: tweet.url,
-        username: "KJFUTURES",
+        username: OWN_USERNAME,
         name: "KJ",
         created_at: tweet.timestamp || new Date().toISOString(),
         likes: tweet.likes || 0,
+        quoted_tweet_id: tweet.quotedTweetId ?? null,
       });
+
+      if (tweet.quotedTweetId && tweet.quotedTweetUrl) {
+        await insertQuotedSnapshot({
+          x_tweet_id: tweet.tweetId,
+          quoted_tweet_id: tweet.quotedTweetId,
+          quoted_username: tweet.quotedTweetUsername ?? null,
+          quoted_url: tweet.quotedTweetUrl,
+        });
+        quotesPersisted++;
+      }
+
+      if (tweet.photos.length > 0) {
+        // Archive-imported tweets already have full-fidelity media — don't
+        // stomp video/gif rows with scraped photo fallbacks.
+        if (await hasExistingMedia(tweet.tweetId)) {
+          mediaSkipped += tweet.photos.length;
+        } else {
+          for (let i = 0; i < tweet.photos.length; i++) {
+            const photo = tweet.photos[i];
+            try {
+              const uploaded = await fetchAndUploadPhoto(tweet.tweetId, photo);
+              if (!uploaded) continue;
+              await insertMedia({
+                x_tweet_id: tweet.tweetId,
+                media_key: uploaded.mediaKey,
+                media_type: "photo",
+                url: uploaded.url,
+                display_order: i,
+              });
+              mediaUploaded++;
+            } catch (err) {
+              console.warn(
+                `[scrape-tweets] failed to upload photo ${photo.mediaKey} for tweet ${tweet.tweetId}:`,
+                err,
+              );
+            }
+          }
+        }
+      }
     }
 
     // Degradation alert if fallback selectors were used
@@ -269,6 +389,9 @@ export default async function handler(
       attempts: result.attempts,
       selectorsUsed: result.selectorsUsed,
       fallbacksTriggered: result.fallbacksTriggered,
+      mediaUploaded,
+      mediaSkipped,
+      quotesPersisted,
     });
   } catch (error) {
     console.error("Scraper error:", error);
