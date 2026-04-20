@@ -5,10 +5,6 @@
   "devCommand": "npm run dev",
   "crons": [
     {
-      "path": "/api/cron/scrape-tweets",
-      "schedule": "0 */6 * * *"
-    },
-    {
       "path": "/api/cron/refresh-metrics",
       "schedule": "0 0 * * 0"
     }
