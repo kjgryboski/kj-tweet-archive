@@ -6,7 +6,7 @@ vi.mock("@vercel/postgres", () => ({
   sql: mockSql,
 }));
 
-import { initDb, insertTweet, getTweetsPaginated, getTweetById, getTweetCount, updateTweetLikes } from "./db";
+import { initDb, ensureSchema, insertTweet, getTweetsPaginated, getTweetById, getTweetCount, updateTweetLikes } from "./db";
 
 beforeEach(() => {
   mockSql.mockReset();
@@ -17,6 +17,20 @@ describe("initDb", () => {
     mockSql.mockResolvedValue({});
     await initDb();
     expect(mockSql).toHaveBeenCalled();
+  });
+});
+
+describe("ensureSchema", () => {
+  it("runs initDb once, then returns cached result on subsequent calls", async () => {
+    mockSql.mockResolvedValue({});
+    await ensureSchema();
+    const callsAfterFirst = mockSql.mock.calls.length;
+    expect(callsAfterFirst).toBeGreaterThan(0);
+
+    await ensureSchema();
+    await ensureSchema();
+    // No additional SQL — the promise is memoized.
+    expect(mockSql.mock.calls.length).toBe(callsAfterFirst);
   });
 });
 

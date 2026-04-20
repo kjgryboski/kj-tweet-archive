@@ -75,6 +75,7 @@ vi.mock("@sparticuz/chromium", () => ({
 }));
 
 vi.mock("@/lib/db", () => ({
+  ensureSchema: vi.fn().mockResolvedValue(undefined),
   insertTweet: mockInsertTweet,
   insertMedia: mockInsertMedia,
   insertQuotedSnapshot: mockInsertQuotedSnapshot,

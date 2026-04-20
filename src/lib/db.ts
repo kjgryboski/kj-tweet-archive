@@ -63,6 +63,25 @@ export async function initDb() {
   `;
 }
 
+/**
+ * Memoized once-per-process schema guard. Cron handlers call this on every
+ * invocation; on warm starts it's a cached no-op, on cold starts it runs
+ * idempotent `CREATE IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` DDL so the
+ * scraper doesn't blow up when `tweet_media` or `quoted_tweet_snapshots`
+ * haven't been created yet (e.g. fresh DB before the archive importer runs).
+ */
+let schemaReady: Promise<void> | null = null;
+export function ensureSchema(): Promise<void> {
+  if (!schemaReady) {
+    schemaReady = initDb().catch((err) => {
+      // Reset so the next caller retries — don't poison the promise.
+      schemaReady = null;
+      throw err;
+    });
+  }
+  return schemaReady;
+}
+
 export interface PaginatedTweets {
   tweets: TweetProps[];
   hasMore: boolean;

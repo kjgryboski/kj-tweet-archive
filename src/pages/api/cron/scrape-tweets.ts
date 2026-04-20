@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
-import { insertTweet, insertMedia, insertQuotedSnapshot } from "@/lib/db";
+import { ensureSchema, insertTweet, insertMedia, insertQuotedSnapshot } from "@/lib/db";
 import { generateTitle, type ScrapedTweet } from "@/lib/scraper-utils";
 import { SELECTORS } from "@/lib/scraper-selectors";
 import { sendAlert } from "@/lib/email";
@@ -309,6 +309,11 @@ export default async function handler(
   }
 
   try {
+    // Idempotent + memoized — cached no-op on warm starts, creates missing
+    // tables/columns on cold starts so the scraper doesn't crash on a fresh
+    // DB before the archive importer has run.
+    await ensureSchema();
+
     const result = await scrapeTweetsWithRetry();
 
     let mediaUploaded = 0;
