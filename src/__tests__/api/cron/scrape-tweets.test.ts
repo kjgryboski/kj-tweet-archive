@@ -104,7 +104,7 @@ vi.mock("@/lib/scraper-selectors", () => ({
   },
 }));
 
-import handler from "./scrape-tweets";
+import handler from "@/pages/api/cron/scrape-tweets";
 
 function createMockReqRes(authHeader?: string) {
   const req = {

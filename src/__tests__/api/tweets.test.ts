@@ -6,7 +6,7 @@ vi.mock("@/lib/db", () => ({
   getTweetCount: vi.fn(),
 }));
 
-import handler from "./tweets";
+import handler from "@/pages/api/tweets";
 import { getTweetsPaginated, getTweetCount } from "@/lib/db";
 
 const mockGetTweetsPaginated = vi.mocked(getTweetsPaginated);

@@ -20,7 +20,7 @@ vi.mock("@/lib/scraper-selectors", () => ({
   },
 }));
 
-import handler from "./refresh-metrics";
+import handler from "@/pages/api/cron/refresh-metrics";
 
 function createMockReqRes(authHeader?: string) {
   const req = { method: "GET", headers: { authorization: authHeader } } as unknown as NextApiRequest;
