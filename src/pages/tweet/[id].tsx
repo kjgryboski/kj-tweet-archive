@@ -10,7 +10,7 @@ import Tweet, { TweetProps } from "@/components/Tweet";
 import BackToTop from "@/components/BackToTop";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useThemeContext } from "@/lib/theme-context";
-import { getTweetById } from "@/lib/db";
+import { ensureSchema, getTweetById } from "@/lib/db";
 
 interface TweetPageProps {
   tweet: TweetProps;
@@ -34,6 +34,7 @@ export const getServerSideProps: GetServerSideProps = async ({ params, res }) =>
 
   if (!id) return { notFound: true };
 
+  await ensureSchema();
   const tweet = await getTweetById(id);
 
   if (!tweet) return { notFound: true };

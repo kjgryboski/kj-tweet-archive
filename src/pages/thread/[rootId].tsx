@@ -8,7 +8,7 @@ import Tweet, { TweetProps } from "@/components/Tweet";
 import BackToTop from "@/components/BackToTop";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useThemeContext } from "@/lib/theme-context";
-import { getThreadParts } from "@/lib/db";
+import { ensureSchema, getThreadParts } from "@/lib/db";
 
 interface ThreadPageProps {
   rootId: string;
@@ -35,6 +35,7 @@ export const getServerSideProps: GetServerSideProps<ThreadPageProps> = async ({
   const rootId = params?.rootId as string;
   if (!rootId) return { notFound: true };
 
+  await ensureSchema();
   const parts = await getThreadParts(rootId);
   if (parts.length === 0) return { notFound: true };
 

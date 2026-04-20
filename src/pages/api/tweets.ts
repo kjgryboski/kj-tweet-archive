@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getTweetsPaginated, getTweetCount } from "@/lib/db";
+import { ensureSchema, getTweetsPaginated, getTweetCount } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 
 const checkRateLimit = rateLimit({ windowMs: 60_000, max: 60 });
@@ -23,6 +23,7 @@ export default async function handler(
   }
 
   try {
+    await ensureSchema();
     const cursor = req.query.cursor as string | undefined;
     const limit = parseInt(req.query.limit as string) || 30;
     const sortParam = req.query.sort as string;
