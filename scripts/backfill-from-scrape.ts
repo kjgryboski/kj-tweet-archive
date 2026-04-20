@@ -45,7 +45,7 @@ async function main() {
         name: "KJ",
         created_at: t.time,
         likes: t.likes,
-        source: "playwright-backfill",
+        source: "scraper",
       });
       if (before) updated++;
       else inserted++;
