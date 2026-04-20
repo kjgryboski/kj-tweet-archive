@@ -44,7 +44,10 @@ export const getServerSideProps: GetServerSideProps = async ({ params, res }) =>
     "public, s-maxage=86400, stale-while-revalidate=3600"
   );
 
-  return { props: { tweet } };
+  // Next.js getServerSideProps rejects undefined values on serialization.
+  // mapRowToTweet uses `|| undefined` for optional columns, so round-trip
+  // through JSON to drop any undefined keys before returning.
+  return { props: { tweet: JSON.parse(JSON.stringify(tweet)) } };
 };
 
 export default function TweetPage({ tweet }: TweetPageProps) {
@@ -86,10 +89,16 @@ export default function TweetPage({ tweet }: TweetPageProps) {
         <meta name="description" content={ogDescription} />
         <meta property="og:title" content={ogTitle} />
         <meta property="og:description" content={ogDescription} />
-        <meta property="og:image" content="https://kjtweets.com/og-card.png" />
+        <meta property="og:image" content={`https://kjtweets.com/api/og/${tweet.id}`} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content={ogDescription} />
         <meta property="og:url" content={`https://kjtweets.com/tweet/${tweet.id}`} />
         <meta property="og:type" content="article" />
         <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:image" content={`https://kjtweets.com/api/og/${tweet.id}`} />
+        <meta name="twitter:title" content={ogTitle} />
+        <meta name="twitter:description" content={ogDescription} />
       </Head>
 
       <Box component="main" sx={{ minHeight: "100vh" }}>
