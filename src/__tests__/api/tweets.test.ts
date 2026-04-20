@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 vi.mock("@/lib/db", () => ({
+  ensureSchema: vi.fn().mockResolvedValue(undefined),
   getTweetsPaginated: vi.fn(),
   getTweetCount: vi.fn(),
 }));
