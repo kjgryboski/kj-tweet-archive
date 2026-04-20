@@ -28,6 +28,7 @@ import {
   insertTweet,
   insertMedia,
   insertQuotedSnapshot,
+  hasMedia,
 } from "../src/lib/db";
 import { uploadMedia, contentTypeForExt, blobPathForMedia } from "../src/lib/blob";
 
@@ -187,6 +188,7 @@ async function main() {
 
   let imported = 0;
   let mediaCount = 0;
+  let mediaSkipped = 0;
   let quoteCount = 0;
 
   for (const tweet of toImport) {
@@ -222,6 +224,13 @@ async function main() {
 
     for (let i = 0; i < tweet.media.length; i++) {
       const m = tweet.media[i];
+      // Idempotency: skip re-upload if this exact (tweet, media_key) is
+      // already persisted. Lets the importer be safely re-run after a
+      // partial failure without redundantly pushing the same bytes to Blob.
+      if (!dryRun && (await hasMedia(tweet.idStr, m.mediaKey))) {
+        mediaSkipped++;
+        continue;
+      }
       const { url, thumbnailUrl } = await uploadMediaFor(tweet, m, mediaIndex, dryRun);
       if (!dryRun) {
         await insertMedia({
@@ -261,7 +270,7 @@ async function main() {
   }
 
   console.log(
-    `Done. tweets=${imported} media=${mediaCount} quotes=${quoteCount} dryRun=${dryRun}`,
+    `Done. tweets=${imported} media=${mediaCount} mediaSkipped=${mediaSkipped} quotes=${quoteCount} dryRun=${dryRun}`,
   );
 }
 

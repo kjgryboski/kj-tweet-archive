@@ -158,7 +158,13 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
             function detectQuote(
               el: Element,
               ownUsername: string
-            ): { url: string; username: string; id: string } | null {
+            ): {
+              url: string;
+              username: string;
+              id: string;
+              text?: string;
+              createdAt?: string;
+            } | null {
               const nested = el.querySelector("article");
               if (!nested) return null;
               const anchors = Array.from(
@@ -170,7 +176,17 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
                 if (!m) continue;
                 const [, username, id] = m;
                 if (username.toLowerCase() === ownUsername.toLowerCase()) continue;
-                return { url: `https://x.com${href}`, username, id };
+                const textEl = nested.querySelector('[data-testid="tweetText"]');
+                const text = textEl?.textContent?.trim() || undefined;
+                const timeEl = nested.querySelector("time[datetime]");
+                const createdAt = timeEl?.getAttribute("datetime") || undefined;
+                return {
+                  url: `https://x.com${href}`,
+                  username,
+                  id,
+                  text,
+                  createdAt,
+                };
               }
               return null;
             }
@@ -196,6 +212,8 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
               quotedTweetUrl?: string;
               quotedTweetUsername?: string;
               quotedTweetId?: string;
+              quotedTweetText?: string;
+              quotedTweetCreatedAt?: string;
             }[] = [];
 
             let usedTextSelector = "";
@@ -248,6 +266,8 @@ async function scrapeTweetsWithRetry(): Promise<ScrapeResult> {
                 quotedTweetUrl: quote?.url,
                 quotedTweetUsername: quote?.username,
                 quotedTweetId: quote?.id,
+                quotedTweetText: quote?.text,
+                quotedTweetCreatedAt: quote?.createdAt,
               });
             });
 
@@ -338,6 +358,8 @@ export default async function handler(
           quoted_tweet_id: tweet.quotedTweetId,
           quoted_username: tweet.quotedTweetUsername ?? null,
           quoted_url: tweet.quotedTweetUrl,
+          quoted_text: tweet.quotedTweetText ?? null,
+          quoted_created_at: tweet.quotedTweetCreatedAt ?? null,
         });
         quotesPersisted++;
       }

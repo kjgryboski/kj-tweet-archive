@@ -215,6 +215,44 @@ describe("parseTweetElements", () => {
     expect(results[0].photos[0].url).toContain("name=large");
   });
 
+  it("captures quoted_text and quoted_created_at from the nested article", () => {
+    const container = document.createElement("div");
+    const article = document.createElement("article");
+    article.setAttribute("data-testid", "tweet");
+
+    const link = document.createElement("a");
+    link.setAttribute("href", "/KJFUTURES/status/1");
+    const time = document.createElement("time");
+    time.setAttribute("datetime", "2026-01-15T12:00:00.000Z");
+    link.appendChild(time);
+    article.appendChild(link);
+
+    const tt = document.createElement("div");
+    tt.setAttribute("data-testid", "tweetText");
+    tt.textContent = "my reaction";
+    article.appendChild(tt);
+
+    const nested = document.createElement("article");
+    const qlink = document.createElement("a");
+    qlink.setAttribute("href", "/somebody/status/999");
+    nested.appendChild(qlink);
+    const qtext = document.createElement("div");
+    qtext.setAttribute("data-testid", "tweetText");
+    qtext.textContent = "viral take";
+    nested.appendChild(qtext);
+    const qtime = document.createElement("time");
+    qtime.setAttribute("datetime", "2025-12-01T08:00:00.000Z");
+    nested.appendChild(qtime);
+    article.appendChild(nested);
+
+    container.appendChild(article);
+
+    const [t] = parseTweetElements(container);
+    expect(t.quotedTweetId).toBe("999");
+    expect(t.quotedTweetText).toBe("viral take");
+    expect(t.quotedTweetCreatedAt).toBe("2025-12-01T08:00:00.000Z");
+  });
+
   it("does not pull photos from the nested quoted tweet", () => {
     const container = document.createElement("div");
     const article = document.createElement("article");

@@ -192,7 +192,15 @@ export async function getTweetsPaginated(
           WHERE (created_at, id) > (
             SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
           )
-          AND (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          AND (
+            message ILIKE ${pattern}
+            OR title ILIKE ${pattern}
+            OR EXISTS (
+              SELECT 1 FROM quoted_tweet_snapshots qs
+              WHERE qs.x_tweet_id = tweets.x_tweet_id
+                AND qs.quoted_text ILIKE ${pattern}
+            )
+          )
           ORDER BY created_at ASC, id ASC
           LIMIT ${fetchLimit}
         `);
@@ -210,7 +218,15 @@ export async function getTweetsPaginated(
       if (q) {
         ({ rows } = await sql`
           SELECT * FROM tweets
-          WHERE (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          WHERE (
+            message ILIKE ${pattern}
+            OR title ILIKE ${pattern}
+            OR EXISTS (
+              SELECT 1 FROM quoted_tweet_snapshots qs
+              WHERE qs.x_tweet_id = tweets.x_tweet_id
+                AND qs.quoted_text ILIKE ${pattern}
+            )
+          )
           ORDER BY created_at ASC, id ASC
           LIMIT ${fetchLimit}
         `);
@@ -228,7 +244,15 @@ export async function getTweetsPaginated(
         ({ rows } = await sql`
           SELECT * FROM tweets
           WHERE (likes, id) < (SELECT likes, id FROM tweets WHERE x_tweet_id = ${cursor})
-          AND (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          AND (
+            message ILIKE ${pattern}
+            OR title ILIKE ${pattern}
+            OR EXISTS (
+              SELECT 1 FROM quoted_tweet_snapshots qs
+              WHERE qs.x_tweet_id = tweets.x_tweet_id
+                AND qs.quoted_text ILIKE ${pattern}
+            )
+          )
           ORDER BY likes DESC, id DESC
           LIMIT ${fetchLimit}
         `);
@@ -244,7 +268,15 @@ export async function getTweetsPaginated(
       if (q) {
         ({ rows } = await sql`
           SELECT * FROM tweets
-          WHERE (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          WHERE (
+            message ILIKE ${pattern}
+            OR title ILIKE ${pattern}
+            OR EXISTS (
+              SELECT 1 FROM quoted_tweet_snapshots qs
+              WHERE qs.x_tweet_id = tweets.x_tweet_id
+                AND qs.quoted_text ILIKE ${pattern}
+            )
+          )
           ORDER BY likes DESC, id DESC
           LIMIT ${fetchLimit}
         `);
@@ -262,7 +294,15 @@ export async function getTweetsPaginated(
           WHERE (created_at, id) < (
             SELECT created_at, id FROM tweets WHERE x_tweet_id = ${cursor}
           )
-          AND (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          AND (
+            message ILIKE ${pattern}
+            OR title ILIKE ${pattern}
+            OR EXISTS (
+              SELECT 1 FROM quoted_tweet_snapshots qs
+              WHERE qs.x_tweet_id = tweets.x_tweet_id
+                AND qs.quoted_text ILIKE ${pattern}
+            )
+          )
           ORDER BY created_at DESC, id DESC
           LIMIT ${fetchLimit}
         `);
@@ -280,7 +320,15 @@ export async function getTweetsPaginated(
       if (q) {
         ({ rows } = await sql`
           SELECT * FROM tweets
-          WHERE (message ILIKE ${pattern} OR title ILIKE ${pattern})
+          WHERE (
+            message ILIKE ${pattern}
+            OR title ILIKE ${pattern}
+            OR EXISTS (
+              SELECT 1 FROM quoted_tweet_snapshots qs
+              WHERE qs.x_tweet_id = tweets.x_tweet_id
+                AND qs.quoted_text ILIKE ${pattern}
+            )
+          )
           ORDER BY created_at DESC, id DESC
           LIMIT ${fetchLimit}
         `);
@@ -450,6 +498,21 @@ export async function getTweetById(x_tweet_id: string): Promise<TweetProps | nul
   return hydrated;
 }
 
+/**
+ * Returns all tweets that belong to a thread, ordered by created_at ASC so
+ * "1/ 2/ 3/" reads in natural order. Accepts either the root's x_tweet_id
+ * (which has thread_root_id = NULL but x_tweet_id = rootId) or any part id.
+ */
+export async function getThreadParts(rootId: string): Promise<TweetProps[]> {
+  const { rows } = await sql`
+    SELECT * FROM tweets
+    WHERE x_tweet_id = ${rootId} OR thread_root_id = ${rootId}
+    ORDER BY created_at ASC, id ASC
+  `;
+  if (rows.length === 0) return [];
+  return hydrateTweets(rows.map(mapRowToTweet));
+}
+
 export async function getTweetCount(): Promise<number> {
   const { rows } = await sql`SELECT COUNT(*) as count FROM tweets`;
   return parseInt(rows[0].count, 10);
@@ -457,4 +520,21 @@ export async function getTweetCount(): Promise<number> {
 
 export async function updateTweetLikes(x_tweet_id: string, likes: number) {
   await sql`UPDATE tweets SET likes = ${likes} WHERE x_tweet_id = ${x_tweet_id}`;
+}
+
+/**
+ * True if a specific (tweet, media_key) pair already has a row — used by the
+ * archive importer to skip re-uploading photos/videos that were already
+ * pushed to Blob on a prior run.
+ */
+export async function hasMedia(
+  x_tweet_id: string,
+  media_key: string,
+): Promise<boolean> {
+  const { rows } = await sql`
+    SELECT 1 FROM tweet_media
+    WHERE x_tweet_id = ${x_tweet_id} AND media_key = ${media_key}
+    LIMIT 1
+  `;
+  return rows.length > 0;
 }

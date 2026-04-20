@@ -24,6 +24,8 @@ export interface ScrapedTweet {
   quotedTweetUrl?: string;
   quotedTweetUsername?: string;
   quotedTweetId?: string;
+  quotedTweetText?: string;
+  quotedTweetCreatedAt?: string;
 }
 
 export type SelectorConfig = Record<SelectorKey, readonly string[]>;
@@ -90,10 +92,18 @@ function outerOnlyText(el: Element): string {
 
 const STATUS_HREF_RE = /^\/([^/]+)\/status\/(\d+)/;
 
+interface QuoteDetection {
+  url: string;
+  username: string;
+  id: string;
+  text?: string;
+  createdAt?: string;
+}
+
 function detectQuote(
   el: Element,
   ownUsername: string,
-): { url: string; username: string; id: string } | undefined {
+): QuoteDetection | undefined {
   const nested = el.querySelector("article");
   if (!nested) return undefined;
   const anchors = Array.from(nested.querySelectorAll('a[href*="/status/"]'));
@@ -103,7 +113,17 @@ function detectQuote(
     if (!m) continue;
     const [, username, id] = m;
     if (username.toLowerCase() === ownUsername.toLowerCase()) continue;
-    return { url: `https://x.com${href}`, username, id };
+    const textEl = nested.querySelector('[data-testid="tweetText"]');
+    const text = textEl?.textContent?.trim() || undefined;
+    const timeEl = nested.querySelector("time[datetime]");
+    const createdAt = timeEl?.getAttribute("datetime") || undefined;
+    return {
+      url: `https://x.com${href}`,
+      username,
+      id,
+      text,
+      createdAt,
+    };
   }
   return undefined;
 }
@@ -188,6 +208,8 @@ export function parseTweetElements(
       quotedTweetUrl: quote?.url,
       quotedTweetUsername: quote?.username,
       quotedTweetId: quote?.id,
+      quotedTweetText: quote?.text,
+      quotedTweetCreatedAt: quote?.createdAt,
     });
   });
 

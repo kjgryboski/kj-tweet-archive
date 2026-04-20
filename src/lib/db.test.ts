@@ -6,7 +6,7 @@ vi.mock("@vercel/postgres", () => ({
   sql: mockSql,
 }));
 
-import { initDb, ensureSchema, insertTweet, getTweetsPaginated, getTweetById, getTweetCount, updateTweetLikes } from "./db";
+import { initDb, ensureSchema, insertTweet, getTweetsPaginated, getTweetById, getTweetCount, updateTweetLikes, getThreadParts, hasMedia } from "./db";
 
 beforeEach(() => {
   mockSql.mockReset();
@@ -167,5 +167,62 @@ describe("updateTweetLikes", () => {
     mockSql.mockResolvedValue({});
     await updateTweetLikes("tweet123", 42);
     expect(mockSql).toHaveBeenCalled();
+  });
+});
+
+describe("hasMedia", () => {
+  it("returns true when a row exists for (x_tweet_id, media_key)", async () => {
+    mockSql.mockResolvedValue({ rows: [{ "?column?": 1 }] });
+    expect(await hasMedia("tweet-1", "key-a")).toBe(true);
+  });
+
+  it("returns false when no row exists", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    expect(await hasMedia("tweet-1", "key-missing")).toBe(false);
+  });
+});
+
+describe("getThreadParts", () => {
+  it("returns empty array when no tweets match", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    const parts = await getThreadParts("missing");
+    expect(parts).toEqual([]);
+  });
+
+  it("queries by x_tweet_id OR thread_root_id and ORDERs ASC", async () => {
+    mockSql.mockResolvedValue({ rows: [] });
+    await getThreadParts("root-1");
+    const call = mockSql.mock.calls[0];
+    const sqlText = call[0].join("?");
+    expect(sqlText).toContain("thread_root_id");
+    expect(sqlText).toContain("ORDER BY created_at ASC");
+    expect(JSON.stringify(call)).toContain("root-1");
+  });
+
+  it("hydrates results through mapRowToTweet", async () => {
+    mockSql
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 1, x_tweet_id: "root-1", message: "1/", title: "root",
+            created_at: new Date("2026-01-01T10:00:00Z"),
+            username: "KJFUTURES", name: "KJ", is_thread_part: false,
+          },
+          {
+            id: 2, x_tweet_id: "part-2", message: "2/ more", title: "2/",
+            created_at: new Date("2026-01-01T10:01:00Z"),
+            username: "KJFUTURES", name: "KJ", is_thread_part: true,
+            thread_root_id: "root-1",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] })  // tweet_media hydration
+      .mockResolvedValueOnce({ rows: [] }); // quoted snapshots hydration
+
+    const parts = await getThreadParts("root-1");
+    expect(parts).toHaveLength(2);
+    expect(parts[0].id).toBe("root-1");
+    expect(parts[1].id).toBe("part-2");
+    expect(parts[1].threadRootId).toBe("root-1");
   });
 });

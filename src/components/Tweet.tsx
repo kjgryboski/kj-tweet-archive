@@ -407,6 +407,7 @@ export default function Tweet({
   media,
   quotedTweet,
   isThreadPart,
+  threadRootId,
   xLink,
   searchTerm = "",
   likes = 0,
@@ -508,7 +509,24 @@ export default function Tweet({
                 noWrap
               >
                 @{username} · {formattedDate}
-                {isThreadPart ? " · thread" : ""}
+                {isThreadPart && (
+                  <>
+                    {" · "}
+                    <Typography
+                      component="a"
+                      href={`/thread/${threadRootId || id}`}
+                      variant="caption"
+                      onClick={(e) => e.stopPropagation()}
+                      sx={{
+                        color: "inherit",
+                        textDecoration: "none",
+                        "&:hover": { color: "text.primary", textDecoration: "underline" },
+                      }}
+                    >
+                      thread
+                    </Typography>
+                  </>
+                )}
               </Typography>
             </Box>
           </Box>
