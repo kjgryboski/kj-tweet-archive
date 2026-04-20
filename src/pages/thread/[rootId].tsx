@@ -66,7 +66,6 @@ export default function ThreadPage({ rootId, parts }: ThreadPageProps) {
         <meta property="og:url" content={`https://kjtweets.com/thread/${rootId}`} />
         <meta property="og:type" content="article" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:site" content="@KJFUTURES" />
       </Head>
 
       <Box component="main" sx={{ minHeight: "100vh" }}>

@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
-import { Card, CardContent, Typography, Box, Avatar, IconButton, Tooltip } from "@mui/material";
+import { Card, CardContent, Typography, Box, Avatar } from "@mui/material";
 import { styled, Theme } from "@mui/material/styles";
 import React, { useRef, useState, useEffect } from "react";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
@@ -138,17 +138,20 @@ const TweetText = styled(Typography)(({ theme }: { theme: Theme }) => ({
   },
 }));
 
-const XIconButton = styled(IconButton)(({ theme }: { theme: Theme }) => ({
+const ArchivedBadge = styled(Box)(({ theme }: { theme: Theme }) => ({
   position: "absolute",
   top: theme.spacing(1),
   right: theme.spacing(1),
-  color: theme.palette.text.primary,
-  padding: theme.spacing(0.5),
-  "&:hover": {
-    backgroundColor: "transparent",
-  },
-  borderRadius: "50%",
-  fontSize: "1.2rem",
+  fontFamily: '"Roboto Mono", "Courier New", monospace',
+  fontSize: "0.65rem",
+  letterSpacing: "0.05em",
+  textTransform: "uppercase",
+  color: theme.palette.text.secondary,
+  padding: theme.spacing(0.25, 0.75),
+  border: `1px solid ${theme.palette.divider}`,
+  borderRadius: theme.spacing(0.5),
+  userSelect: "none",
+  pointerEvents: "none",
 }));
 
 const AnimatedBox = styled(motion.div)({
@@ -408,7 +411,6 @@ export default function Tweet({
   quotedTweet,
   isThreadPart,
   threadRootId,
-  xLink,
   searchTerm = "",
   likes = 0,
   fullText = false,
@@ -425,12 +427,6 @@ export default function Tweet({
   const formattedDate = formatDistanceToNow(new Date(createdAt), {
     addSuffix: true,
   });
-
-  const openOriginalTweet = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const tweetUrl = xLink || `https://twitter.com/${username}/status/${id}`;
-    window.open(tweetUrl, "_blank");
-  };
 
   const highlightSearchTerm = (content: string, term: string) => {
     if (!term.trim()) return content;
@@ -465,21 +461,7 @@ export default function Tweet({
       id={`tweet-${id}`}
     >
       <StyledCard>
-        <Tooltip title="View on X" placement="left">
-          <XIconButton onClick={openOriginalTweet} aria-label="View original tweet">
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 512 512"
-              height="1em"
-              width="1em"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M389.2 48h70.6L305.6 224.2 487 464H345L233.7 318.6 106.5 464H35.8L200.7 275.5 26.8 48H172.4L272.9 180.9 389.2 48zM364.4 421.8h39.1L151.1 88h-42L364.4 421.8z"></path>
-            </svg>
-          </XIconButton>
-        </Tooltip>
+        <ArchivedBadge>Archived</ArchivedBadge>
 
         <StyledCardContent>
           <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>

@@ -142,7 +142,6 @@ export default function Home() {
         <meta property="og:url" content="https://kjtweets.com" />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary" />
-        <meta name="twitter:site" content="@KJFUTURES" />
       </Head>
 
       <Box component="main" sx={{ minHeight: "100vh" }}>

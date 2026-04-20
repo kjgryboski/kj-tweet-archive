@@ -90,7 +90,6 @@ export default function TweetPage({ tweet }: TweetPageProps) {
         <meta property="og:url" content={`https://kjtweets.com/tweet/${tweet.id}`} />
         <meta property="og:type" content="article" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:site" content="@KJFUTURES" />
       </Head>
 
       <Box component="main" sx={{ minHeight: "100vh" }}>
