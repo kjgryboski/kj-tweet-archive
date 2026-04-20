@@ -432,8 +432,17 @@ export default function Tweet({
     }
   };
 
-  const formattedDate = formatDistanceToNow(new Date(createdAt), {
+  const handleCardPrefetch = () => {
+    router.prefetch(`/tweet/${id}`);
+  };
+
+  const createdAtDate = new Date(createdAt);
+  const formattedDate = formatDistanceToNow(createdAtDate, {
     addSuffix: true,
+  });
+  const fullDateTitle = createdAtDate.toLocaleString(undefined, {
+    dateStyle: "full",
+    timeStyle: "short",
   });
 
   const highlightSearchTerm = (content: string, term: string) => {
@@ -471,6 +480,8 @@ export default function Tweet({
       <StyledCard
         onClick={!fullText ? handleCardClick : undefined}
         onKeyDown={!fullText ? handleCardKeyDown : undefined}
+        onMouseEnter={!fullText ? handleCardPrefetch : undefined}
+        onFocus={!fullText ? handleCardPrefetch : undefined}
         role={!fullText ? "link" : undefined}
         tabIndex={!fullText ? 0 : undefined}
         aria-label={!fullText ? `View tweet: ${(title || text).slice(0, 80)}` : undefined}
@@ -481,6 +492,12 @@ export default function Tweet({
                 "&:focus-visible": {
                   outline: (theme) => `2px solid ${theme.palette.primary.main}`,
                   outlineOffset: "2px",
+                },
+                "&:active": {
+                  backgroundColor: (theme) =>
+                    theme.palette.mode === "dark"
+                      ? "rgba(255, 255, 255, 0.04)"
+                      : "rgba(0, 0, 0, 0.03)",
                 },
               }
             : undefined
@@ -515,7 +532,10 @@ export default function Tweet({
                 }}
                 noWrap
               >
-                @{username} · {formattedDate}
+                @{username} ·{" "}
+                <Box component="span" title={fullDateTitle}>
+                  {formattedDate}
+                </Box>
                 {isThreadPart && (
                   <>
                     {" · "}
