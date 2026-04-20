@@ -6,6 +6,25 @@ import { styled, Theme } from "@mui/material/styles";
 import React, { useRef, useState, useEffect } from "react";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 
+export interface TweetMedia {
+  mediaKey: string;
+  type: "photo" | "video" | "animated_gif";
+  url: string;
+  thumbnailUrl?: string;
+  width?: number;
+  height?: number;
+  durationMs?: number;
+}
+
+export interface QuotedTweet {
+  id: string;
+  username?: string;
+  name?: string;
+  text?: string;
+  url?: string;
+  createdAt?: string;
+}
+
 export interface TweetProps {
   id: string;
   text: string;
@@ -14,6 +33,13 @@ export interface TweetProps {
   username: string;
   name: string;
   mediaUrls?: string[];
+  media?: TweetMedia[];
+  quotedTweet?: QuotedTweet;
+  isThreadPart?: boolean;
+  threadRootId?: string;
+  replyCount?: number;
+  retweetCount?: number;
+  quoteCount?: number;
   xLink?: string;
   searchTerm?: string;
   likes?: number;
@@ -45,13 +71,12 @@ const StyledCard = styled(Card)(({ theme }: { theme: Theme }) => ({
   },
 }));
 
-// Create a styled version of CardContent to remove default padding
 const StyledCardContent = styled(CardContent)({
   padding: 0,
   "&.MuiCardContent-root": {
     padding: 0,
     "&:last-child": {
-      paddingBottom: 0, // Remove the default bottom padding
+      paddingBottom: 0,
     },
   },
   display: "flex",
@@ -74,21 +99,23 @@ const Title = styled(Typography)(({ theme }: { theme: Theme }) => ({
   },
 }));
 
-const TweetTextWrapper = styled(Box)(({ theme }: { theme: Theme }) => ({
+const TweetTextWrapper = styled(Box)<{ fullText?: boolean }>(({ theme, fullText }) => ({
   position: "relative",
   flex: 1,
-  maxHeight: "200px",
-  overflow: "hidden",
-  "&::after": {
-    content: '""',
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: "40px",
-    background: `linear-gradient(transparent, ${theme.palette.background.paper})`,
-    pointerEvents: "none",
-  },
+  maxHeight: fullText ? "none" : "200px",
+  overflow: fullText ? "visible" : "hidden",
+  "&::after": fullText
+    ? {}
+    : {
+        content: '""',
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: "40px",
+        background: `linear-gradient(transparent, ${theme.palette.background.paper})`,
+        pointerEvents: "none",
+      },
   [theme.breakpoints.down("sm")]: {
     maxHeight: "none",
     "&::after": {
@@ -105,6 +132,7 @@ const TweetText = styled(Typography)(({ theme }: { theme: Theme }) => ({
   wordBreak: "break-word",
   overflowWrap: "break-word",
   hyphens: "auto",
+  whiteSpace: "pre-wrap",
   [theme.breakpoints.down("sm")]: {
     fontSize: "0.9rem",
   },
@@ -139,6 +167,235 @@ const HighlightedText = styled("span")(({ theme }: { theme: Theme }) => ({
   animation: "search-highlight-pulse 1.5s ease-out infinite",
 }));
 
+const QuoteCard = styled(Box)(({ theme }: { theme: Theme }) => ({
+  marginTop: theme.spacing(1.5),
+  padding: theme.spacing(1.5),
+  border: `1px solid ${theme.palette.divider}`,
+  borderRadius: theme.spacing(1),
+  backgroundColor:
+    theme.palette.mode === "dark" ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+  cursor: "pointer",
+  transition: "background-color 0.15s ease",
+  "&:hover": {
+    backgroundColor:
+      theme.palette.mode === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
+  },
+}));
+
+type MediaLayout = "single" | "double" | "triple" | "quad";
+
+function layoutFor(count: number): MediaLayout | null {
+  if (count >= 4) return "quad";
+  if (count === 3) return "triple";
+  if (count === 2) return "double";
+  if (count === 1) return "single";
+  return null;
+}
+
+function MediaItem({ item, rounded }: { item: TweetMedia; rounded: string }) {
+  if (item.type === "video") {
+    return (
+      <Box
+        component="video"
+        src={item.url}
+        poster={item.thumbnailUrl}
+        controls
+        playsInline
+        preload="metadata"
+        sx={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+          borderRadius: rounded,
+          backgroundColor: "#000",
+        }}
+      />
+    );
+  }
+  if (item.type === "animated_gif") {
+    return (
+      <Box
+        component="video"
+        src={item.url}
+        autoPlay
+        loop
+        muted
+        playsInline
+        sx={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          display: "block",
+          borderRadius: rounded,
+          backgroundColor: "#000",
+        }}
+      />
+    );
+  }
+  return (
+    <Image
+      src={item.url}
+      alt="Tweet media"
+      fill
+      sizes="(max-width: 600px) 100vw, 600px"
+      style={{ objectFit: "cover", borderRadius: rounded }}
+    />
+  );
+}
+
+function MediaGrid({ media }: { media: TweetMedia[] }) {
+  const layout = layoutFor(media.length);
+  if (!layout) return null;
+  const gap = 2;
+
+  if (layout === "single") {
+    const item = media[0];
+    const ratio =
+      item.width && item.height ? `${item.width} / ${item.height}` : "16 / 9";
+    return (
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          aspectRatio: ratio,
+          maxHeight: 420,
+          mt: 1.5,
+          overflow: "hidden",
+          borderRadius: "12px",
+        }}
+      >
+        <MediaItem item={item} rounded="12px" />
+      </Box>
+    );
+  }
+
+  if (layout === "double") {
+    return (
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: `${gap}px`,
+          mt: 1.5,
+          height: 260,
+          borderRadius: "12px",
+          overflow: "hidden",
+        }}
+      >
+        {media.slice(0, 2).map((m) => (
+          <Box key={m.mediaKey} sx={{ position: "relative", height: "100%" }}>
+            <MediaItem item={m} rounded="0" />
+          </Box>
+        ))}
+      </Box>
+    );
+  }
+
+  if (layout === "triple") {
+    return (
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gridTemplateRows: "1fr 1fr",
+          gap: `${gap}px`,
+          mt: 1.5,
+          height: 320,
+          borderRadius: "12px",
+          overflow: "hidden",
+        }}
+      >
+        <Box sx={{ position: "relative", gridRow: "1 / span 2" }}>
+          <MediaItem item={media[0]} rounded="0" />
+        </Box>
+        <Box sx={{ position: "relative" }}>
+          <MediaItem item={media[1]} rounded="0" />
+        </Box>
+        <Box sx={{ position: "relative" }}>
+          <MediaItem item={media[2]} rounded="0" />
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gridTemplateRows: "1fr 1fr",
+        gap: `${gap}px`,
+        mt: 1.5,
+        height: 320,
+        borderRadius: "12px",
+        overflow: "hidden",
+      }}
+    >
+      {media.slice(0, 4).map((m) => (
+        <Box key={m.mediaKey} sx={{ position: "relative" }}>
+          <MediaItem item={m} rounded="0" />
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+function QuotedTweetCard({ quote }: { quote: QuotedTweet }) {
+  const openQuote = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (quote.url) window.open(quote.url, "_blank");
+  };
+  return (
+    <QuoteCard onClick={openQuote} role="link" aria-label="View quoted tweet">
+      <Box sx={{ display: "flex", alignItems: "center", mb: 0.5, gap: 0.75 }}>
+        {quote.name && (
+          <Typography
+            variant="caption"
+            fontWeight="bold"
+            fontFamily='"Roboto Mono", "Courier New", monospace'
+            noWrap
+          >
+            {quote.name}
+          </Typography>
+        )}
+        {quote.username && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            fontFamily='"Roboto Mono", "Courier New", monospace'
+            noWrap
+          >
+            @{quote.username}
+          </Typography>
+        )}
+      </Box>
+      {quote.text ? (
+        <Typography
+          variant="body2"
+          fontFamily='"Roboto Mono", "Courier New", monospace'
+          sx={{
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            fontSize: "0.85rem",
+            color: "text.primary",
+          }}
+        >
+          {quote.text}
+        </Typography>
+      ) : (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          fontFamily='"Roboto Mono", "Courier New", monospace'
+        >
+          {quote.url ?? "View quoted tweet"}
+        </Typography>
+      )}
+    </QuoteCard>
+  );
+}
+
 export default function Tweet({
   id,
   text,
@@ -147,6 +404,9 @@ export default function Tweet({
   username,
   name,
   mediaUrls,
+  media,
+  quotedTweet,
+  isThreadPart,
   xLink,
   searchTerm = "",
   likes = 0,
@@ -166,18 +426,15 @@ export default function Tweet({
   });
 
   const openOriginalTweet = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent event bubbling
+    e.stopPropagation();
     const tweetUrl = xLink || `https://twitter.com/${username}/status/${id}`;
     window.open(tweetUrl, "_blank");
   };
 
-  // Function to highlight search term in text
   const highlightSearchTerm = (content: string, term: string) => {
     if (!term.trim()) return content;
-
     const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
     const parts = content.split(regex);
-
     return (
       <>
         {parts.map((part, i) =>
@@ -186,6 +443,17 @@ export default function Tweet({
       </>
     );
   };
+
+  const effectiveMedia: TweetMedia[] | undefined =
+    media && media.length > 0
+      ? media
+      : mediaUrls && mediaUrls.length > 0
+        ? mediaUrls.map((url, i) => ({
+            mediaKey: `legacy-${i}`,
+            type: "photo" as const,
+            url,
+          }))
+        : undefined;
 
   return (
     <AnimatedBox
@@ -225,9 +493,7 @@ export default function Tweet({
                 fontWeight="bold"
                 fontFamily='"Roboto Mono", "Courier New", monospace'
                 noWrap
-                sx={{
-                  fontSize: { xs: "0.875rem", sm: "0.875rem" },
-                }}
+                sx={{ fontSize: { xs: "0.875rem", sm: "0.875rem" } }}
               >
                 {name}
               </Typography>
@@ -242,6 +508,7 @@ export default function Tweet({
                 noWrap
               >
                 @{username} · {formattedDate}
+                {isThreadPart ? " · thread" : ""}
               </Typography>
             </Box>
           </Box>
@@ -249,6 +516,7 @@ export default function Tweet({
           {title && title !== text.trim() && !text.trim().startsWith(title) && (
             <Title variant="h6">{highlightSearchTerm(title, searchTerm)}</Title>
           )}
+
           {fullText ? (
             <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
           ) : (
@@ -276,6 +544,9 @@ export default function Tweet({
             </>
           )}
 
+          {effectiveMedia && <MediaGrid media={effectiveMedia} />}
+          {quotedTweet && <QuotedTweetCard quote={quotedTweet} />}
+
           <Box sx={{ display: "flex", alignItems: "center", mt: "auto", pt: 1 }}>
             <FavoriteBorderIcon sx={{ fontSize: 16, mr: 0.5, color: "text.secondary" }} />
             <Typography
@@ -286,16 +557,6 @@ export default function Tweet({
               {likes}
             </Typography>
           </Box>
-
-          {mediaUrls && mediaUrls.length > 0 && (
-            <Box sx={{ mt: "auto" }}>
-              <Box
-                sx={{ position: "relative", height: 150, borderRadius: "4px", overflow: "hidden" }}
-              >
-                <Image src={mediaUrls[0]} alt="Tweet media" fill style={{ objectFit: "cover" }} />
-              </Box>
-            </Box>
-          )}
         </StyledCardContent>
       </StyledCard>
     </AnimatedBox>
