@@ -46,7 +46,7 @@ export const getServerSideProps: GetServerSideProps<ThreadPageProps> = async ({
   return { props: { rootId, parts } };
 };
 
-export default function ThreadPage({ parts }: ThreadPageProps) {
+export default function ThreadPage({ rootId, parts }: ThreadPageProps) {
   const { colorMode, toggleColorMode } = useThemeContext();
   const root = parts[0];
   const headTitle = (root.title || root.text).slice(0, 80);
@@ -58,9 +58,14 @@ export default function ThreadPage({ parts }: ThreadPageProps) {
       <Head>
         <title>Thread — {headTitle} — KJ Tweets</title>
         <meta name="description" content={headDesc} />
+        <link rel="canonical" href={`https://kjtweets.com/thread/${rootId}`} />
         <meta property="og:title" content={`Thread — ${headTitle}`} />
         <meta property="og:description" content={headDesc} />
+        <meta property="og:image" content="https://kjtweets.com/og-card.png" />
+        <meta property="og:url" content={`https://kjtweets.com/thread/${rootId}`} />
         <meta property="og:type" content="article" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:site" content="@KJFUTURES" />
       </Head>
 
       <Box component="main" sx={{ minHeight: "100vh" }}>

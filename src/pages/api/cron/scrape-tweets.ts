@@ -332,7 +332,21 @@ export default async function handler(
     // Idempotent + memoized — cached no-op on warm starts, creates missing
     // tables/columns on cold starts so the scraper doesn't crash on a fresh
     // DB before the archive importer has run.
-    await ensureSchema();
+    try {
+      await ensureSchema();
+    } catch (err) {
+      console.error("Schema init error:", err);
+      await sendAlert(
+        "[KJ Tweets] Schema init FAILED — cron cannot run",
+        `ensureSchema() threw before scraping started. DB connectivity or permissions are likely broken.\nError: ${String(err)}`,
+      );
+      return res.status(500).json({
+        success: false,
+        error: `Schema init failed: ${String(err)}`,
+        stage: "schema",
+        alertSent: true,
+      });
+    }
 
     const result = await scrapeTweetsWithRetry();
 
