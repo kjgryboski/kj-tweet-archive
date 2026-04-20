@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
+import { useRouter } from "next/router";
 import { Card, CardContent, Typography, Box, Avatar } from "@mui/material";
 import { styled, Theme } from "@mui/material/styles";
-import React, { useRef, useState, useEffect } from "react";
+import React from "react";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 
 export interface TweetMedia {
@@ -205,6 +206,7 @@ function MediaItem({ item, rounded }: { item: TweetMedia; rounded: string }) {
         controls
         playsInline
         preload="metadata"
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
         sx={{
           width: "100%",
           height: "100%",
@@ -415,14 +417,20 @@ export default function Tweet({
   likes = 0,
   fullText = false,
 }: TweetProps) {
-  const textWrapperRef = useRef<HTMLDivElement>(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
+  const router = useRouter();
 
-  useEffect(() => {
-    if (fullText || !textWrapperRef.current) return;
-    const el = textWrapperRef.current;
-    setIsOverflowing(el.scrollHeight > el.clientHeight);
-  }, [text, fullText]);
+  const handleCardClick = () => {
+    const selection = typeof window !== "undefined" ? window.getSelection() : null;
+    if (selection && selection.toString().length > 0) return;
+    router.push(`/tweet/${id}`);
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      router.push(`/tweet/${id}`);
+    }
+  };
 
   const formattedDate = formatDistanceToNow(new Date(createdAt), {
     addSuffix: true,
@@ -460,7 +468,24 @@ export default function Tweet({
       transition={{ duration: 0.5, ease: "easeOut" }}
       id={`tweet-${id}`}
     >
-      <StyledCard>
+      <StyledCard
+        onClick={!fullText ? handleCardClick : undefined}
+        onKeyDown={!fullText ? handleCardKeyDown : undefined}
+        role={!fullText ? "link" : undefined}
+        tabIndex={!fullText ? 0 : undefined}
+        aria-label={!fullText ? `View tweet: ${(title || text).slice(0, 80)}` : undefined}
+        sx={
+          !fullText
+            ? {
+                cursor: "pointer",
+                "&:focus-visible": {
+                  outline: (theme) => `2px solid ${theme.palette.primary.main}`,
+                  outlineOffset: "2px",
+                },
+              }
+            : undefined
+        }
+      >
         <ArchivedBadge>Archived</ArchivedBadge>
 
         <StyledCardContent>
@@ -520,28 +545,9 @@ export default function Tweet({
           {fullText ? (
             <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
           ) : (
-            <>
-              <TweetTextWrapper ref={textWrapperRef}>
-                <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
-              </TweetTextWrapper>
-              {isOverflowing && (
-                <Typography
-                  component="a"
-                  href={`/tweet/${id}`}
-                  variant="caption"
-                  sx={{
-                    fontFamily: '"Roboto Mono", monospace',
-                    color: "text.secondary",
-                    textDecoration: "none",
-                    mt: 0.5,
-                    display: "block",
-                    "&:hover": { color: "text.primary" },
-                  }}
-                >
-                  Read more →
-                </Typography>
-              )}
-            </>
+            <TweetTextWrapper>
+              <TweetText>{highlightSearchTerm(text, searchTerm)}</TweetText>
+            </TweetTextWrapper>
           )}
 
           {effectiveMedia && <MediaGrid media={effectiveMedia} />}

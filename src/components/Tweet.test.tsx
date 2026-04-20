@@ -23,6 +23,11 @@ vi.mock("next/image", () => ({
   default: (props: any) => <img {...props} />,
 }));
 
+// Mock next/router — Tweet uses useRouter for card click navigation
+vi.mock("next/router", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 const defaultProps = {
   id: "123",
   text: "This is a test tweet about trading futures",

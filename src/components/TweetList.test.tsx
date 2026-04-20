@@ -24,6 +24,11 @@ vi.mock("next/image", () => ({
   default: (props: any) => <img {...props} />,
 }));
 
+// Mock next/router — Tweet uses useRouter for card click navigation
+vi.mock("next/router", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 function renderWithTheme(ui: React.ReactElement) {
   return render(<ThemeProvider>{ui}</ThemeProvider>);
 }
